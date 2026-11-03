@@ -1,5 +1,11 @@
-const CACHE_NAME = "forma-shell-v2";
-const SHELL = ["/", "/manifest.webmanifest"];
+const CACHE_NAME = "forma-shell-v3";
+const SHELL = [
+  "/",
+  "/manifest.webmanifest",
+  "/media/exercises/squat-start.webp",
+  "/media/exercises/squat-descent.webp",
+  "/media/exercises/squat-return.webp",
+];
 const PRIVATE_PATHS = new Set(["/me", "/profiles", "/exercises"]);
 
 self.addEventListener("install", (event) => {

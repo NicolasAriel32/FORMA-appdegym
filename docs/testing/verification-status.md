@@ -29,7 +29,7 @@
 - La pantalla de entrenamiento construye una secuencia de ejercicios desde la rutina seleccionada cuando dispone de catálogo oficial; el avance conserva la sesión y el ejercicio actual.
 - Progreso calcula volumen, sesiones, mejor marca y barras semanales desde sesiones locales autenticadas; sin identidad muestra datos demo etiquetados.
 - La interfaz incluye una alerta y un detalle no destructivo para operaciones `blocked` o `recovery_required`; no ofrece sobrescritura ni resolución automática.
-- La ficha completa de ejercicio fue verificada en producción para sentadilla, press banca y remo: presenta prototipo visual vectorial, estado offline, pestañas de animación/músculos/ángulos y contenido educativo específico por ejercicio. La figura es un recurso de validación de UI; los assets biomecánicos finales todavía requieren producción y revisión profesional.
+- La ficha completa de ejercicio fue verificada en producción para sentadilla, press banca y remo: presenta un piloto visual 3D generado para sentadilla, tres fases WebP precargadas por el Service Worker, estado offline, pestañas de animación/músculos/ángulos y contenido educativo específico por ejercicio. El recurso valida la UI, pero no es una afirmación biomecánica final y requiere revisión profesional antes de publicarse como material educativo definitivo.
 - IndexedDB conserva el catálogo sin una pasada de borrado, y las operaciones offline de series/finalización preservan la secuencia del agregado.
 - La auditoría de npm no reportó vulnerabilidades de severidad alta o superior.
 - No se detectaron secretos ni almacenamiento de tokens en `localStorage` o `sessionStorage`.

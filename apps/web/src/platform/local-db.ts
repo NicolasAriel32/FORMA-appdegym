@@ -1,7 +1,8 @@
 import type { IDBFactory, IDBDatabase, IDBRequest, IDBTransaction } from "fake-indexeddb";
-import type { WorkoutSession } from "../../../../packages/domain/src/workout.js";
+import type { ExerciseId, SessionId, SetId, WorkoutSession } from "../../../../packages/domain/src/workout.js";
 import type { SyncOperation } from "../../../../packages/sync/src/outbox.js";
 import type { ApiExercise } from "./api-client.js";
+import type { ApiSyncChangesPage } from "./sync-client.js";
 
 export const LOCAL_DATABASE_VERSION = 2;
 export const LOCAL_STORE_NAMES = {
@@ -188,6 +189,43 @@ export async function listOutboxOperations(
   return values;
 }
 
+export async function saveOutboxOperation(
+  database: LocalDatabase,
+  operation: SyncOperation,
+): Promise<void> {
+  const transaction = database.raw.transaction(LOCAL_STORE_NAMES.outbox, "readwrite");
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      callback();
+    };
+    transaction.oncomplete = () => finish(resolve);
+    transaction.onerror = () => finish(() => reject(transaction.error ?? new LocalPersistenceError("failed to save outbox operation")));
+    transaction.onabort = () => finish(() => reject(transaction.error ?? new LocalPersistenceError("outbox transaction aborted")));
+    try {
+      const store = transaction.objectStore(LOCAL_STORE_NAMES.outbox);
+      const request = store.get(operation.operationId);
+      request.onerror = () => finish(() => reject(request.error ?? new LocalPersistenceError("failed to read outbox operation")));
+      request.onsuccess = () => {
+        const existing = request.result as SyncOperation | undefined;
+        try {
+          if (existing === undefined) throw new LocalPersistenceError("cannot save an unknown outbox operation");
+          if (canonicalOperationContent(existing) !== canonicalOperationContent(operation)) throw new LocalPersistenceError("outbox operation content changed unexpectedly");
+          store.put(operation);
+        } catch (error) {
+          finish(() => reject(error));
+          transaction.abort();
+        }
+      };
+    } catch (error) {
+      finish(() => reject(error));
+      transaction.abort();
+    }
+  });
+}
+
 export async function savePublishedExercises(
   database: LocalDatabase,
   exercises: readonly ApiExercise[],
@@ -242,6 +280,64 @@ export async function getSyncMetadata(
   return value;
 }
 
+export async function applySyncChanges(
+  database: LocalDatabase,
+  page: ApiSyncChangesPage,
+): Promise<void> {
+  const transaction = database.raw.transaction(
+    [LOCAL_STORE_NAMES.workoutSessions, LOCAL_STORE_NAMES.syncMetadata],
+    "readwrite",
+  );
+  const sessions = transaction.objectStore(LOCAL_STORE_NAMES.workoutSessions);
+  const metadataStore = transaction.objectStore(LOCAL_STORE_NAMES.syncMetadata);
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      callback();
+    };
+    transaction.oncomplete = () => finish(resolve);
+    transaction.onerror = () => finish(() => reject(transaction.error ?? new LocalPersistenceError("failed to apply sync changes")));
+    transaction.onabort = () => finish(() => reject(transaction.error ?? new LocalPersistenceError("sync change transaction aborted")));
+    const metadataRequest = metadataStore.get(page.scopeId);
+    metadataRequest.onerror = () => finish(() => reject(metadataRequest.error ?? new LocalPersistenceError("failed to read sync cursor")));
+    metadataRequest.onsuccess = () => {
+      try {
+        const metadata = metadataRequest.result as SyncMetadata | undefined;
+        const currentCursor = metadata?.cursor ?? null;
+        if (page.fromCursor !== currentCursor) throw new LocalPersistenceError("sync page starts from an unexpected cursor");
+        validateSyncPage(page);
+        let index = 0;
+        const applyNext = () => {
+          if (index >= page.changes.length) {
+            metadataStore.put({ scopeId: page.scopeId, cursor: page.nextCursor } satisfies SyncMetadata);
+            return;
+          }
+          const change = page.changes[index]!;
+          index += 1;
+          const sessionRequest = sessions.get(change.aggregateId);
+          sessionRequest.onerror = () => finish(() => reject(sessionRequest.error ?? new LocalPersistenceError("failed to read local workout session")));
+          sessionRequest.onsuccess = () => {
+            try {
+              const session = sessionRequest.result as WorkoutSession | undefined;
+              sessions.put(applySyncChange(session, page.scopeId, change));
+              applyNext();
+            } catch (error) {
+              finish(() => reject(error));
+              transaction.abort();
+            }
+          };
+        };
+        applyNext();
+      } catch (error) {
+        finish(() => reject(error));
+        transaction.abort();
+      }
+    };
+  });
+}
+
 function requestValue<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
@@ -257,6 +353,83 @@ function transactionComplete(transaction: IDBTransaction): Promise<void> {
   });
 }
 
+function validateSyncPage(page: ApiSyncChangesPage): void {
+  if (page.scopeId.length === 0 || !isCursor(page.nextCursor)) throw new LocalPersistenceError("sync page cursor is invalid");
+  let previous = page.fromCursor === null ? 0n : parseCursor(page.fromCursor);
+  for (const change of page.changes) {
+    const cursor = parseCursor(change.cursor);
+    if (cursor <= previous || cursor > parseCursor(page.nextCursor)) throw new LocalPersistenceError("sync page changes are not contiguous");
+    previous = cursor;
+  }
+}
+
+function applySyncChange(
+  session: WorkoutSession | undefined,
+  ownerId: string,
+  change: ApiSyncChangesPage["changes"][number],
+): WorkoutSession {
+  if (change.aggregateType !== "workout_session") throw new LocalPersistenceError("unsupported sync aggregate");
+  const payload = change.payload;
+  const kind = typeof payload.kind === "string" ? payload.kind : undefined;
+  if (kind === "workout_session_started") {
+    const sessionId = readString(payload.sessionId);
+    const createdAt = readString(payload.createdAt);
+    const startedAt = readString(payload.startedAt);
+    if (sessionId === undefined || sessionId !== change.aggregateId || payload.ownerId !== ownerId || createdAt === undefined || startedAt === undefined) throw new LocalPersistenceError("invalid workout session start change");
+    if (session === undefined) return { id: sessionId as SessionId, ownerId: ownerId as WorkoutSession["ownerId"], status: "in_progress", createdAt, startedAt, finishedAt: null, sets: [] };
+    assertSessionOwner(session, ownerId);
+    if (session.status === "finished_confirmed" || session.status === "discarded_confirmed") return session;
+    return { ...session, startedAt: session.startedAt ?? startedAt, status: session.status === "prepared" ? "in_progress" : session.status };
+  }
+  if (session === undefined) throw new LocalPersistenceError("workout change arrived before its session");
+  assertSessionOwner(session, ownerId);
+  if (kind === "workout_set_added") {
+    const set = readWorkoutSet(payload.set);
+    if (readString(payload.sessionId) !== change.aggregateId || set === undefined) throw new LocalPersistenceError("invalid workout set change");
+    const existing = session.sets.find((candidate) => candidate.id === set.id);
+    if (existing !== undefined) {
+      if (canonicalJson(existing) !== canonicalJson(set)) throw new LocalPersistenceError("workout set changed after publication");
+      return session;
+    }
+    if (session.status === "finished_confirmed" || session.status === "discarded_confirmed" || session.status === "recovery_required") throw new LocalPersistenceError("cannot append a set to the local session state");
+    return { ...session, sets: [...session.sets, set] };
+  }
+  if (kind === "workout_session_finished") {
+    const finishedAt = readString(payload.finishedAt);
+    if (readString(payload.sessionId) !== change.aggregateId || finishedAt === undefined) throw new LocalPersistenceError("invalid workout session finish change");
+    if (session.status === "finished_confirmed") return session;
+    if (session.status === "discarded_confirmed" || session.status === "recovery_required") throw new LocalPersistenceError("cannot confirm the local workout session state");
+    return { ...session, status: "finished_confirmed", finishedAt };
+  }
+  throw new LocalPersistenceError("unsupported workout change");
+}
+
+function assertSessionOwner(session: WorkoutSession, ownerId: string): void {
+  if (session.ownerId !== ownerId) throw new LocalPersistenceError("sync change owner does not match local session");
+}
+
+function readWorkoutSet(value: unknown): WorkoutSession["sets"][number] | undefined {
+  if (!isRecord(value) || typeof value.id !== "string" || typeof value.exerciseId !== "string" || !Number.isSafeInteger(value.repetitions) || (value.repetitions as number) <= 0 || typeof value.loadKg !== "number" || !Number.isFinite(value.loadKg) || value.loadKg < 0 || typeof value.createdAt !== "string") return undefined;
+  return { id: value.id as SetId, exerciseId: value.exerciseId as ExerciseId, repetitions: value.repetitions as number, loadKg: value.loadKg, createdAt: value.createdAt };
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isCursor(value: string): boolean {
+  return /^\d+$/.test(value) && value.length <= 30;
+}
+
+function parseCursor(value: string): bigint {
+  if (!isCursor(value)) throw new LocalPersistenceError("invalid sync cursor");
+  return BigInt(value);
+}
+
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map(canonicalJson).join(",")}]`;
@@ -269,4 +442,18 @@ function canonicalJson(value: unknown): string {
       .join(",")}}`;
   }
   return JSON.stringify(value) ?? "undefined";
+}
+
+function canonicalOperationContent(operation: SyncOperation): string {
+  return canonicalJson({
+    operationId: operation.operationId,
+    clientInstanceId: operation.clientInstanceId,
+    aggregateType: operation.aggregateType,
+    aggregateId: operation.aggregateId,
+    sequence: operation.sequence,
+    baseRevision: operation.baseRevision,
+    contractVersion: operation.contractVersion,
+    payload: operation.payload,
+    createdAt: operation.createdAt,
+  });
 }

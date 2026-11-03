@@ -45,7 +45,7 @@ The application API is not deployed yet. A local start requires a real server-on
 
 The API exposes `POST /sync/operations` and `GET /sync/changes`. Both require the authenticated Supabase bearer token and scope results to the authenticated member's internal `app_users.id`; there is no trainer read path in this boundary. Supported operations are the personal `workout-session-v1` start, set-add, and finish commands. The server records the operation before resolving its result, retries only retryable operations, returns a stable receipt, and publishes a change cursor in the same PostgreSQL transaction. Reusing an `operationId` with different content returns a conflict and never overwrites the first evidence.
 
-The browser outbox is not yet wired to drain these endpoints automatically. Until that increment is implemented and tested in a real browser, a green server-side sync test must not be interpreted as end-to-end offline synchronization.
+The browser outbox now has a tested drain service that runs only with an active online session and preserves pending/recovery states in IndexedDB. A real browser and deployed API test are still required before claiming end-to-end offline synchronization.
 
 The web API client sends `Authorization: Bearer <access token>` to `/me` only when `VITE_FORMA_API_URL` is configured. It sets `cache: no-store`, validates the response shape, and never stores the returned private identity in a browser cache. The endpoint remains unverified end-to-end until the application API is deployed.
 

@@ -168,7 +168,7 @@ export class PostgresSyncRepository implements SyncRepository {
        values ($1, $2, 'in_progress', $3, $4, null, 1)`,
       [operation.aggregateId, ownerId, createdAt, startedAt],
     );
-    return { status: "applied", change: { revision: 1, payload: { kind, sessionId: operation.aggregateId, status: "in_progress", startedAt } } };
+    return { status: "applied", change: { revision: 1, payload: { kind, sessionId: operation.aggregateId, ownerId, createdAt, status: "in_progress", startedAt } } };
   }
 
   private async applySet(client: SqlClient, ownerId: string, operation: SyncOperationInput): Promise<OperationDecision> {

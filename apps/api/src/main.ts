@@ -13,10 +13,10 @@ server.listen(config.port, () => {
 });
 
 async function shutdown(): Promise<void> {
-  await database.close();
   await new Promise<void>((resolve, reject) => {
     server.close((error) => error === undefined ? resolve() : reject(error));
   });
+  await database.close();
 }
 
 process.once("SIGTERM", () => { void shutdown(); });

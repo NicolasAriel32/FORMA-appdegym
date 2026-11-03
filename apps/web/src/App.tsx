@@ -19,6 +19,7 @@ import {
   savePublishedExercises,
   type LocalDatabase,
 } from "./platform/local-db.js";
+import { drainOutbox, pullSyncChanges } from "./workout/outbox-sync-service.js";
 import {
   loadCurrentSession,
   signInWithPassword,
@@ -133,6 +134,18 @@ export default function App(): ReactElement {
   }, [serverUser]);
 
   useEffect(() => {
+    if (!online || session === null || serverUser === null || apiBaseUrl === undefined || localDatabase === null) return;
+    let active = true;
+    void drainOutbox({ database: localDatabase, apiBaseUrl, accessToken: session.access_token }).then(async (result) => {
+      await pullSyncChanges({ database: localDatabase, scopeId: serverUser.id, apiBaseUrl, accessToken: session.access_token });
+      if (active && result.confirmed > 0) setWorkoutMessage(`${result.confirmed} operación${result.confirmed === 1 ? "" : "es"} sincronizada${result.confirmed === 1 ? "" : "s"} con el servidor.`);
+    }).catch(() => {
+      if (active) setWorkoutMessage("La sincronización quedará pendiente y se reintentará al recuperar conexión.");
+    });
+    return () => { active = false; };
+  }, [apiBaseUrl, localDatabase, online, serverUser, session]);
+
+  useEffect(() => {
     if (session === null || apiBaseUrl === undefined) { setCatalogExercises(null); setCatalogMessage(null); return; }
     let active = true; setCatalogLoading(true); setCatalogMessage(null);
     void fetchPublishedExercises({ apiBaseUrl, accessToken: session.access_token }).then(async (exercises) => { if (!active) return; setCatalogExercises(exercises); if (localDatabase !== null) await savePublishedExercises(localDatabase, exercises); }).catch((error) => { if (active) { setCatalogExercises([]); setCatalogMessage(toApiMessage(error)); } }).finally(() => { if (active) setCatalogLoading(false); });
@@ -154,6 +167,17 @@ export default function App(): ReactElement {
   const realWorkoutEnabled = serverUser !== null && localDatabase !== null;
   const clientInstanceId = serverUser === null ? null : getClientInstanceId(serverUser.id);
 
+  async function drainPendingOutbox(): Promise<void> {
+    if (!online || session === null || serverUser === null || apiBaseUrl === undefined || localDatabase === null) return;
+    try {
+      const result = await drainOutbox({ database: localDatabase, apiBaseUrl, accessToken: session.access_token });
+      await pullSyncChanges({ database: localDatabase, scopeId: serverUser.id, apiBaseUrl, accessToken: session.access_token });
+      if (result.confirmed > 0) setWorkoutMessage(`${result.confirmed} operación${result.confirmed === 1 ? "" : "es"} sincronizada${result.confirmed === 1 ? "" : "s"} con el servidor.`);
+    } catch {
+      setWorkoutMessage("La sincronización quedará pendiente y se reintentará al recuperar conexión.");
+    }
+  }
+
   async function startWorkout(): Promise<void> {
     setActiveTab("train"); setWorkoutMessage(null);
     if (!realWorkoutEnabled || serverUser === null || localDatabase === null || clientInstanceId === null) { setDemoSessionStarted(true); return; }
@@ -161,6 +185,7 @@ export default function App(): ReactElement {
       const timestamp = new Date().toISOString();
       const result = await startOfflineWorkoutSession({ database: localDatabase, ownerId: serverUser.id as UserId, sessionId: crypto.randomUUID() as SessionId, operationId: crypto.randomUUID(), clientInstanceId, createdAt: timestamp, startedAt: timestamp });
       setActiveWorkout(result.session); setWorkoutMessage("Sesión guardada localmente. Quedará pendiente de sincronización.");
+      void drainPendingOutbox();
     } catch (error) { setWorkoutMessage(toErrorMessage(error, "No se pudo iniciar la sesión local.")); }
   }
 
@@ -172,6 +197,7 @@ export default function App(): ReactElement {
       const timestamp = new Date().toISOString();
       const result = await appendOfflineWorkoutSet({ database: localDatabase, ownerId: serverUser.id as UserId, sessionId: activeWorkout.id, operationId: crypto.randomUUID(), clientInstanceId, setId: crypto.randomUUID() as SetId, exercise: { id: exercise.id as ExerciseId, status: "published" }, exerciseId: exercise.id as ExerciseId, repetitions: 8, loadKg: 80, createdAt: timestamp });
       setActiveWorkout(result.session); setWorkoutMessage("Serie guardada en el dispositivo.");
+      void drainPendingOutbox();
     } catch (error) { setWorkoutMessage(toErrorMessage(error, "No se pudo guardar la serie.")); }
   }
 
@@ -180,6 +206,7 @@ export default function App(): ReactElement {
     try {
       const result = await finishOfflineWorkoutSession({ database: localDatabase, ownerId: serverUser.id as UserId, sessionId: activeWorkout.id, operationId: crypto.randomUUID(), clientInstanceId, finishedAt: new Date().toISOString() });
       setActiveWorkout(null); setWorkoutMessage(`Sesión finalizada localmente con ${result.session.sets.length} series pendientes de sincronizar.`);
+      void drainPendingOutbox();
     } catch (error) { setWorkoutMessage(toErrorMessage(error, "No se pudo finalizar la sesión.")); }
   }
 

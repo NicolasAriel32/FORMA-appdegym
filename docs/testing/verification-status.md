@@ -3,7 +3,7 @@
 ## Verificado en el entorno local
 
 - TypeScript compila en modo estricto.
-- Las 69 pruebas automatizadas pasan (`npm test`); el conteo se conserva explícito para detectar ejecuciones incompletas.
+- Las 74 pruebas automatizadas pasan (`npm test`); el conteo se conserva explícito para detectar ejecuciones incompletas.
 - La API rechaza solicitudes sin identidad y aísla perfiles personales.
 - El endpoint de catálogo requiere autenticación y devuelve solamente ejercicios publicados.
 - El cliente de catálogo falla cerrado cuando faltan campos educativos profesionales.
@@ -14,6 +14,8 @@
 - El adaptador PostgreSQL confirma, revierte y libera conexiones correctamente ante éxito y error.
 - La configuración de runtime exige URL HTTPS, credenciales server-side y un puerto válido; no se incorporan valores secretos al bundle web.
 - El límite server-side de sincronización exige autenticación, valida identificadores/cursor, aplica operaciones personales de sesión dentro de una transacción, emite recibos idempotentes y conserva el cursor en la última página realmente entregada.
+- El drenaje web ordena operaciones por agregado, recupera estados `sending` interrumpidos, confirma solo con recibos coincidentes y conserva errores de transporte/conflictos sin borrado automático.
+- La aplicación local de `sync_changes` actualiza sesiones y cursor en una transacción IndexedDB; un cursor inesperado o cambio incompatible aborta ambos.
 - El núcleo de sesiones respeta propiedad, estados, ejercicios publicados y conflictos.
 - El outbox conserva operaciones, exige recibos coincidentes y no elimina conflictos.
 - El cursor exige continuidad de ámbito y cursor.
@@ -33,7 +35,7 @@
 - API desplegado y `/me` conectado a PostgreSQL persistente; el código de arranque existe, pero todavía no se ejecutó contra un entorno de aplicación desplegado.
 - Navegadores reales, instalación PWA y comportamiento offline entre versiones.
 - Revisión visual automatizada con navegador instalado; el entorno actual no contiene un ejecutable Chromium.
-- Drenaje del outbox web contra la API remota de sincronización y aplicación de recibos en IndexedDB.
+- Prueba end-to-end contra una instancia desplegada y un usuario de Supabase Auth real.
 - Restauración de backups, PITR, RPO y RTO.
 - Reglas F5 de entrenadores y consentimiento.
 

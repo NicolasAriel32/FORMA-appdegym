@@ -16,4 +16,4 @@ Aceptada para el primer incremento de sincronización. No incluye entrenadores, 
 
 ## Consecuencia
 
-El servidor ya tiene una frontera transaccional comprobable para conectar el outbox, pero el cliente todavía debe implementar el drenaje, la confirmación local, los reintentos y la UI de recuperación. La política PL-1171 permanece sin resolver y no se permite inferir una decisión desde este ADR.
+El servidor y el cliente ya tienen una frontera comprobable para drenar el outbox, confirmar operaciones y aplicar páginas `sync_changes` de forma atómica al estado local; todavía falta construir la UI específica de recuperación y ejecutar una prueba end-to-end contra servicios desplegados. La política PL-1171 permanece sin resolver y no se permite inferir una decisión desde este ADR.

@@ -69,6 +69,28 @@ export function markSending(operation: SyncOperation): SyncOperation {
   };
 }
 
+export function markRetryableAfterTransportError(operation: SyncOperation): SyncOperation {
+  if (operation.state !== "sending") {
+    throw new SyncInvariantError("only sending operations may be requeued");
+  }
+  return {
+    ...operation,
+    payload: clonePayload(operation.payload),
+    state: "retryable_error",
+  };
+}
+
+export function markBlockedAfterTransportError(operation: SyncOperation): SyncOperation {
+  if (operation.state !== "sending") {
+    throw new SyncInvariantError("only sending operations may be blocked");
+  }
+  return {
+    ...operation,
+    payload: clonePayload(operation.payload),
+    state: "blocked",
+  };
+}
+
 export function applyServerReceipt(
   operation: SyncOperation,
   receipt: ServerReceipt,

@@ -35,4 +35,4 @@ npm run build:web
 
 ## Próximo paso
 
-Conectar la PWA autenticada con el endpoint `/me` y un repositorio persistente de identidad, manteniendo las políticas RLS y el aislamiento verificados en I1.
+Conectar el cliente `/me` ya preparado con un API desplegado y un repositorio persistente de identidad, manteniendo las políticas RLS y el aislamiento verificados en I1.

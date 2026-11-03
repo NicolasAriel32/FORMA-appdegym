@@ -8,12 +8,21 @@ import {
   subscribeToAuthChanges,
   type WebAuthError,
 } from "./platform/auth.js";
+import {
+  createConfiguredBrowserApiBaseUrl,
+  fetchCurrentUser,
+  type ApiUser,
+} from "./platform/api-client.js";
 import { createConfiguredBrowserSupabaseClient } from "./platform/supabase-client.js";
 
 export default function App(): ReactElement {
   const [online, setOnline] = useState(() => navigator.onLine);
   const supabase = useMemo(() => createConfiguredBrowserSupabaseClient(), []);
+  const apiBaseUrl = useMemo(() => createConfiguredBrowserApiBaseUrl(), []);
   const [session, setSession] = useState<Session | null>(null);
+  const [serverUser, setServerUser] = useState<ApiUser | null>(null);
+  const [serverIdentityLoading, setServerIdentityLoading] = useState(false);
+  const [serverIdentityMessage, setServerIdentityMessage] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authBusy, setAuthBusy] = useState(false);
   const [email, setEmail] = useState("");
@@ -65,6 +74,40 @@ export default function App(): ReactElement {
       unsubscribe();
     };
   }, [supabase]);
+
+  useEffect(() => {
+    if (session === null || apiBaseUrl === undefined) {
+      setServerUser(null);
+      setServerIdentityLoading(false);
+      setServerIdentityMessage(null);
+      return;
+    }
+
+    let active = true;
+    setServerIdentityLoading(true);
+    setServerIdentityMessage(null);
+    void fetchCurrentUser({ apiBaseUrl, accessToken: session.access_token })
+      .then((user) => {
+        if (active) {
+          setServerUser(user);
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setServerUser(null);
+          setServerIdentityMessage(toApiMessage(error));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setServerIdentityLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [apiBaseUrl, session]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -134,6 +177,20 @@ export default function App(): ReactElement {
             <p className="security-note">
               La persistencia de credenciales offline todavía no está habilitada. Tus entrenamientos offline se incorporarán con una política de desbloqueo explícita.
             </p>
+            {apiBaseUrl === undefined ? (
+              <p className="security-note">El endpoint del API todavía no está configurado en este entorno.</p>
+            ) : null}
+            {apiBaseUrl !== undefined && serverIdentityLoading ? (
+              <p className="muted">Validando la identidad interna…</p>
+            ) : null}
+            {serverUser !== null ? (
+              <p className="server-identity">
+                Identidad FORMA validada · rol {serverUser.role}
+              </p>
+            ) : null}
+            {serverIdentityMessage !== null ? (
+              <p className="form-error" role="alert">{serverIdentityMessage}</p>
+            ) : null}
             <button type="button" onClick={() => void handleSignOut()} disabled={authBusy}>
               {authBusy ? "Cerrando…" : "Cerrar sesión"}
             </button>
@@ -195,4 +252,14 @@ function toAuthMessage(error: unknown): string {
     }
   }
   return "No se pudo completar la operación de autenticación.";
+}
+
+function toApiMessage(error: unknown): string {
+  if (error !== null && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.length > 0) {
+      return message;
+    }
+  }
+  return "No se pudo validar la identidad en el API.";
 }

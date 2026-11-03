@@ -33,6 +33,8 @@ The PWA uses the project URL and publishable key only through `VITE_SUPABASE_*` 
 
 The API-side resolver validates the received bearer token with Supabase Auth and maps the external Auth UUID to the stable internal `app_users.id`. No service key is used by the web client, and no provider error text is shown as an authentication result to the user.
 
+The web API client sends `Authorization: Bearer <access token>` to `/me` only when `VITE_FORMA_API_URL` is configured. It sets `cache: no-store`, validates the response shape, and never stores the returned private identity in a browser cache. The endpoint remains unverified end-to-end until the application API is deployed.
+
 ## Verification
 
 - All public tables have RLS enabled.

@@ -387,8 +387,25 @@ function ExerciseMediaPreview({ exercise, source }: { exercise: ExerciseCard; so
 function SquatTechnicalIllustration({ phase, view }: { phase: "start" | "descent" | "return"; view: "animation" | "muscles" | "angles" }): ReactElement {
   const isBottom = phase === "descent";
   const isReturn = phase === "return";
+  const pose = isBottom ? {
+    bar: 67,
+    head: [103, 49],
+    torso: "M98 61 C91 68 88 78 90 87 L109 94 C118 84 121 73 116 62 Z",
+    arms: ["M98 65 L80 70 L63 67", "M116 64 L132 70 L153 67"],
+    hip: "M90 87 L109 94 L119 101 L96 104 Z",
+    legs: ["M99 99 L77 108 L79 139", "M114 98 L130 111 L147 139"],
+    feet: ["M72 142 H86", "M141 142 H157"],
+  } : {
+    bar: isReturn ? 46 : 48,
+    head: [105, isReturn ? 30 : 29],
+    torso: "M101 42 C94 51 91 64 94 77 L111 83 C119 67 119 53 112 42 Z",
+    arms: ["M99 47 L82 57 L64 49", "M112 47 L129 57 L151 49"],
+    hip: "M94 77 L111 83 L116 95 L94 96 Z",
+    legs: ["M98 93 L82 112 L72 141", "M110 93 L127 111 L145 140"],
+    feet: ["M66 143 H81", "M139 143 H155"],
+  };
   const squatClass = isBottom ? "squat-bottom" : isReturn ? "squat-return" : "squat-start";
-  return <svg className={`squat-figure ${squatClass} squat-view-${view}`} viewBox="0 0 220 190" role="img" aria-label="Sentadilla con barra en vista lateral"><defs><linearGradient id="squat-skin" x1="0" x2="1"><stop offset="0" stopColor="#d8d2ff" /><stop offset="1" stopColor="#9181f1" /></linearGradient><linearGradient id="squat-highlight" x1="0" x2="1"><stop offset="0" stopColor="#ffb978" /><stop offset="1" stopColor="#f47d66" /></linearGradient></defs><path className="squat-rack" d="M28 30 V164 M31 47 H47 M31 66 H47" /><path className="squat-floor" d="M18 164 H198" /><g className="squat-bar"><path d="M50 48 H171" /><path d="M57 42 V54 M164 42 V54" /><circle cx="51" cy="48" r="5" /><circle cx="170" cy="48" r="5" /></g><g className="squat-body"><circle className="squat-head" cx="105" cy="29" r="10" /><path className="squat-torso" d="M101 42 C94 51 91 64 94 77 L111 83 C119 67 119 53 112 42 Z" /><path className="squat-arm" d="M99 47 L82 57 L64 49" /><path className="squat-arm" d="M112 47 L129 57 L151 49" /><path className="squat-hip" d="M94 77 L111 83 L116 95 L94 96 Z" /><path className="squat-leg squat-leg-back" d="M98 93 L82 112 L72 141" /><path className="squat-leg squat-leg-front" d="M110 93 L127 111 L145 140" /><path className="squat-foot" d="M66 143 H81 M139 143 H155" /></g>{view === "muscles" ? <g className="squat-muscle-map"><ellipse cx="97" cy="104" rx="13" ry="8" /><ellipse cx="120" cy="108" rx="13" ry="8" /><ellipse cx="78" cy="125" rx="7" ry="16" /><ellipse cx="136" cy="126" rx="7" ry="16" /><path d="M129 105 H188 M78 121 H33" /><text x="145" y="101">GLÚTEOS</text><text x="21" y="118">CUÁDRICEPS</text></g> : null}{view === "angles" ? <g className="squat-angle-map"><path d="M145 145 A40 40 0 0 0 128 112" /><path d="M132 112 l7 2 M132 112 l2 7" /><text x="145" y="151">Ángulo de rodilla</text><text x="137" y="69">Barra sobre mediopié</text></g> : null}</svg>;
+  return <svg className={`squat-figure ${squatClass} squat-view-${view}`} viewBox="0 0 220 190" role="img" aria-label="Sentadilla con barra en vista lateral"><defs><linearGradient id="squat-skin" x1="0" x2="1"><stop offset="0" stopColor="#d8d2ff" /><stop offset="1" stopColor="#9181f1" /></linearGradient><linearGradient id="squat-highlight" x1="0" x2="1"><stop offset="0" stopColor="#ffb978" /><stop offset="1" stopColor="#f47d66" /></linearGradient></defs><path className="squat-rack" d="M28 30 V164 M31 47 H47 M31 66 H47" /><path className="squat-floor" d="M18 164 H198" /><g className="squat-bar" transform={`translate(0 ${pose.bar - 48})`}><path d="M50 48 H171" /><path d="M57 42 V54 M164 42 V54" /><circle cx="51" cy="48" r="5" /><circle cx="170" cy="48" r="5" /></g><g className="squat-body"><circle className="squat-head" cx={pose.head[0]} cy={pose.head[1]} r="10" /><path className="squat-torso" d={pose.torso} /><path className="squat-arm" d={pose.arms[0]} /><path className="squat-arm" d={pose.arms[1]} /><path className="squat-hip" d={pose.hip} /><path className="squat-leg squat-leg-back" d={pose.legs[0]} /><path className="squat-leg squat-leg-front" d={pose.legs[1]} /><path className="squat-foot" d={pose.feet[0]} /><path className="squat-foot" d={pose.feet[1]} /></g>{view === "muscles" ? <g className="squat-muscle-map"><ellipse cx={isBottom ? 100 : 98} cy={isBottom ? 101 : 104} rx="13" ry="8" /><ellipse cx={isBottom ? 116 : 120} cy={isBottom ? 104 : 108} rx="13" ry="8" /><ellipse cx={isBottom ? 78 : 78} cy={isBottom ? 121 : 125} rx="7" ry="16" /><ellipse cx={isBottom ? 136 : 136} cy={isBottom ? 126 : 126} rx="7" ry="16" /><path d="M129 105 H188 M78 121 H33" /><text x="145" y="101">GLÚTEOS</text><text x="21" y="118">CUÁDRICEPS</text></g> : null}{view === "angles" ? <g className="squat-angle-map"><path d="M145 145 A40 40 0 0 0 128 112" /><path d="M132 112 l7 2 M132 112 l2 7" /><text x="143" y="151">Rodilla</text><text x="137" y="69">Barra / mediopié</text></g> : null}</svg>;
 }
 
 function ExerciseMotionIllustration({ color }: { color: string }): ReactElement {

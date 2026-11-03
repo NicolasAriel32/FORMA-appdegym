@@ -166,6 +166,7 @@ export default function App(): ReactElement {
     let active = true;
     void drainOutbox({ database: localDatabase, apiBaseUrl, accessToken: session.access_token }).then(async (result) => {
       await pullSyncChanges({ database: localDatabase, scopeId: serverUser.id, apiBaseUrl, accessToken: session.access_token });
+      await refreshLocalSessions();
       if (active && result.confirmed > 0) setWorkoutMessage(`${result.confirmed} operación${result.confirmed === 1 ? "" : "es"} sincronizada${result.confirmed === 1 ? "" : "s"} con el servidor.`);
     }).catch(() => {
       if (active) setWorkoutMessage("La sincronización quedará pendiente y se reintentará al recuperar conexión.");
@@ -200,6 +201,7 @@ export default function App(): ReactElement {
     try {
       const result = await drainOutbox({ database: localDatabase, apiBaseUrl, accessToken: session.access_token });
       await pullSyncChanges({ database: localDatabase, scopeId: serverUser.id, apiBaseUrl, accessToken: session.access_token });
+      await refreshLocalSessions();
       if (result.confirmed > 0) setWorkoutMessage(`${result.confirmed} operación${result.confirmed === 1 ? "" : "es"} sincronizada${result.confirmed === 1 ? "" : "s"} con el servidor.`);
     } catch {
       setWorkoutMessage("La sincronización quedará pendiente y se reintentará al recuperar conexión.");

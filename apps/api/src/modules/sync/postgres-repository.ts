@@ -21,6 +21,7 @@ type SyncOperationRow = {
   payload: unknown;
   result_status: string;
   receipt_id: string;
+  created_at: string | Date;
 };
 
 type WorkoutSessionRow = {
@@ -245,7 +246,13 @@ async function currentCursor(client: SqlClient, scopeId: string): Promise<string
 }
 
 function sameOperation(row: SyncOperationRow, ownerId: string, operation: SyncOperationInput): boolean {
-  return row.owner_id === ownerId && row.client_instance_id === operation.clientInstanceId && row.aggregate_type === operation.aggregateType && row.aggregate_id === operation.aggregateId && Number(row.sequence) === operation.sequence && Number(row.base_revision) === operation.baseRevision && row.contract_version === operation.contractVersion && canonicalJson(row.payload) === canonicalJson(operation.payload);
+  return row.owner_id === ownerId && row.client_instance_id === operation.clientInstanceId && row.aggregate_type === operation.aggregateType && row.aggregate_id === operation.aggregateId && Number(row.sequence) === operation.sequence && Number(row.base_revision) === operation.baseRevision && row.contract_version === operation.contractVersion && datesMatch(row.created_at, operation.createdAt) && canonicalJson(row.payload) === canonicalJson(operation.payload);
+}
+
+function datesMatch(left: string | Date, right: string): boolean {
+  const leftTime = left instanceof Date ? left.getTime() : Date.parse(left);
+  const rightTime = Date.parse(right);
+  return !Number.isNaN(leftTime) && leftTime === rightTime;
 }
 
 function toReceiptStatus(status: string | undefined): SyncResultStatus {

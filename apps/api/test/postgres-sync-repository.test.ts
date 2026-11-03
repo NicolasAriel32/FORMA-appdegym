@@ -22,7 +22,7 @@ function makeClient() {
         return { rows: row === undefined ? [] as Row[] : [row as Row] };
       }
       if (text.includes("insert into public.sync_operations")) {
-        operations.set(String(values[0]), { operation_id: values[0], owner_id: values[1], client_instance_id: values[2], aggregate_type: values[3], aggregate_id: values[4], sequence: values[5], base_revision: values[6], contract_version: values[7], payload: values[8], result_status: "received", receipt_id: values[9] });
+        operations.set(String(values[0]), { operation_id: values[0], owner_id: values[1], client_instance_id: values[2], aggregate_type: values[3], aggregate_id: values[4], sequence: values[5], base_revision: values[6], contract_version: values[7], payload: values[8], result_status: "received", receipt_id: values[9], created_at: values[10] });
         return { rows: [] as Row[] };
       }
       if (text.includes("from public.workout_sessions")) {

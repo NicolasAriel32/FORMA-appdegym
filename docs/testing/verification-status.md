@@ -26,6 +26,9 @@
 - El Service Worker no cachea respuestas autenticadas ni rutas privadas del API.
 - La interfaz navegable compila con Inicio, Rutinas, Entrenar, Progreso, Ejercicios y Perfil; los datos demo están marcados, mientras que el detalle de catálogo, la edición online de rutinas y los comandos locales de entrenamiento tienen límites explícitos.
 - La pantalla de entrenamiento permite editar carga y repeticiones, refleja los valores ingresados en la tabla demo, valida los valores inválidos y activa el temporizador de descanso después de guardar una serie.
+- La pantalla de entrenamiento construye una secuencia de ejercicios desde la rutina seleccionada cuando dispone de catálogo oficial; el avance conserva la sesión y el ejercicio actual.
+- Progreso calcula volumen, sesiones, mejor marca y barras semanales desde sesiones locales autenticadas; sin identidad muestra datos demo etiquetados.
+- La interfaz incluye una alerta y un detalle no destructivo para operaciones `blocked` o `recovery_required`; no ofrece sobrescritura ni resolución automática.
 - IndexedDB conserva el catálogo sin una pasada de borrado, y las operaciones offline de series/finalización preservan la secuencia del agregado.
 - La auditoría de npm no reportó vulnerabilidades de severidad alta o superior.
 - No se detectaron secretos ni almacenamiento de tokens en `localStorage` o `sessionStorage`.

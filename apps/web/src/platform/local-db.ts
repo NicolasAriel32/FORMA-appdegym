@@ -1,12 +1,14 @@
 import type { IDBFactory, IDBDatabase, IDBRequest, IDBTransaction } from "fake-indexeddb";
 import type { WorkoutSession } from "../../../../packages/domain/src/workout.js";
 import type { SyncOperation } from "../../../../packages/sync/src/outbox.js";
+import type { ApiExercise } from "./api-client.js";
 
-export const LOCAL_DATABASE_VERSION = 1;
+export const LOCAL_DATABASE_VERSION = 2;
 export const LOCAL_STORE_NAMES = {
   workoutSessions: "workoutSessions",
   outbox: "outbox",
   syncMetadata: "syncMetadata",
+  exercises: "exercises",
 } as const;
 
 export type SyncMetadata = {
@@ -50,6 +52,12 @@ export function openLocalDatabase(
         database.createObjectStore(LOCAL_STORE_NAMES.syncMetadata, {
           keyPath: "scopeId",
         });
+      }
+      if (!database.objectStoreNames.contains(LOCAL_STORE_NAMES.exercises)) {
+        const exercises = database.createObjectStore(LOCAL_STORE_NAMES.exercises, {
+          keyPath: "id",
+        });
+        exercises.createIndex("byName", "name", { unique: false });
       }
     };
     request.onerror = () => reject(request.error ?? new Error("failed to open local database"));
@@ -142,6 +150,19 @@ export async function getSession(
   return value;
 }
 
+export async function listSessionsByOwner(
+  database: LocalDatabase,
+  ownerId: string,
+): Promise<WorkoutSession[]> {
+  const transaction = database.raw.transaction(LOCAL_STORE_NAMES.workoutSessions, "readonly");
+  const complete = transactionComplete(transaction);
+  const values = await requestValue<WorkoutSession[]>(
+    transaction.objectStore(LOCAL_STORE_NAMES.workoutSessions).index("byOwnerId").getAll(ownerId),
+  );
+  await complete;
+  return values;
+}
+
 export async function getOutboxOperation(
   database: LocalDatabase,
   operationId: string,
@@ -165,6 +186,33 @@ export async function listOutboxOperations(
   );
   await complete;
   return values;
+}
+
+export async function savePublishedExercises(
+  database: LocalDatabase,
+  exercises: readonly ApiExercise[],
+): Promise<void> {
+  const transaction = database.raw.transaction(LOCAL_STORE_NAMES.exercises, "readwrite");
+  try {
+    const store = transaction.objectStore(LOCAL_STORE_NAMES.exercises);
+    for (const exercise of exercises) store.put(exercise);
+  } catch (error) {
+    transaction.abort();
+    throw error;
+  }
+  await transactionComplete(transaction);
+}
+
+export async function listCachedExercises(
+  database: LocalDatabase,
+): Promise<ApiExercise[]> {
+  const transaction = database.raw.transaction(LOCAL_STORE_NAMES.exercises, "readonly");
+  const complete = transactionComplete(transaction);
+  const values = await requestValue<ApiExercise[]>(
+    transaction.objectStore(LOCAL_STORE_NAMES.exercises).getAll(),
+  );
+  await complete;
+  return values.filter((exercise) => exercise.status === "published");
 }
 
 export async function saveSyncMetadata(

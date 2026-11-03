@@ -20,12 +20,14 @@ The following schema is present in the project:
 
 - internal users and gym memberships;
 - official exercises;
+- structured educational content for official exercises;
+- owner-scoped routines and routine exercises;
 - workout sessions and sets;
 - idempotency evidence and incremental change log;
 - Supabase Auth binding through `app_users.auth_user_id`;
 - RLS policies for owner-scoped data.
 
-The initial schema was bootstrapped through the Supabase SQL connection after inspecting the empty project. The repository migrations `0001` through `0005` are the source files and should be formalized in the project migration history before production use.
+The initial schema was bootstrapped through the Supabase SQL connection after inspecting the empty project. The routine and educational extensions were applied as tracked Supabase migrations `routines_owner_scoped_structural_editing` and `exercise_education_content`. The repository migrations `0001` through `0005` remain the source record of the initial bootstrap and should be formalized in the project migration history before production use.
 
 ## Web authentication boundary
 

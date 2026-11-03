@@ -5,6 +5,8 @@ import type { AddressInfo } from "node:net";
 import { createApiServer } from "../src/http/create-server.js";
 import { InMemoryExerciseCatalogRepository } from "../src/modules/catalog/repository.js";
 import { ExerciseCatalogService } from "../src/modules/catalog/service.js";
+import { InMemoryRoutineRepository } from "../src/modules/routines/repository.js";
+import { RoutineService } from "../src/modules/routines/service.js";
 import { InMemoryIdentityRepository } from "../src/modules/identity/repository.js";
 import { IdentityService } from "../src/modules/identity/service.js";
 import type { UserId } from "../src/modules/identity/types.js";
@@ -36,6 +38,14 @@ const server = createApiServer({
         createdAt: "2026-11-01T00:00:00.000Z",
         publishedAt: "2026-11-01T00:00:00.000Z",
         retiredAt: "2026-11-02T00:00:00.000Z",
+        movementPattern: "squat",
+        targetMuscles: ["quadriceps"],
+        secondaryMuscles: ["gluteus maximus"],
+        instructions: "Contenido editorial de prueba",
+        commonMistakes: ["Perder el control"],
+        safetyNotes: ["Usar una carga controlable"],
+        equipment: "barbell",
+        difficulty: "intermediate",
       },
       {
         id: "exercise-published",
@@ -46,8 +56,25 @@ const server = createApiServer({
         createdAt: "2026-11-01T00:00:00.000Z",
         publishedAt: "2026-11-01T00:00:00.000Z",
         retiredAt: null,
+        movementPattern: "horizontal_push",
+        targetMuscles: ["pectoralis major"],
+        secondaryMuscles: ["triceps brachii"],
+        instructions: "Contenido editorial de prueba",
+        commonMistakes: ["Rebotar la barra"],
+        safetyNotes: ["Usar soportes adecuados"],
+        equipment: "barbell",
+        difficulty: "intermediate",
       },
     ]),
+  ),
+  routineService: new RoutineService(
+    new InMemoryRoutineRepository(
+      (() => {
+        let sequence = 0;
+        return () => `routine-${++sequence}`;
+      })(),
+      () => "2026-11-03T00:00:00.000Z",
+    ),
   ),
 });
 
@@ -85,6 +112,57 @@ test("catalog exposes published official exercises only", async () => {
       createdAt: "2026-11-01T00:00:00.000Z",
       publishedAt: "2026-11-01T00:00:00.000Z",
       retiredAt: null,
+      movementPattern: "horizontal_push",
+      targetMuscles: ["pectoralis major"],
+      secondaryMuscles: ["triceps brachii"],
+      instructions: "Contenido editorial de prueba",
+      commonMistakes: ["Rebotar la barra"],
+      safetyNotes: ["Usar soportes adecuados"],
+      equipment: "barbell",
+      difficulty: "intermediate",
     },
   ]);
+});
+
+test("routines are created and listed only for the authenticated owner", async () => {
+  const createResponse = await fetch(`${baseUrl}/routines`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test:member-1",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      name: "Piernas fuerza",
+      description: "Bloque principal",
+      exerciseIds: ["exercise-published"],
+    }),
+  });
+  const created = (await createResponse.json()) as { id: string; ownerId: string; exercises: unknown[] };
+  assert.equal(createResponse.status, 201);
+  assert.equal(typeof created.ownerId, "string");
+  assert.equal(created.exercises.length, 1);
+
+  const ownerList = await fetch(`${baseUrl}/routines`, {
+    headers: { authorization: "Bearer test:member-1" },
+  });
+  assert.equal(ownerList.status, 200);
+  assert.equal(((await ownerList.json()) as { routines: unknown[] }).routines.length, 1);
+
+  const otherOwnerList = await fetch(`${baseUrl}/routines`, {
+    headers: { authorization: "Bearer test:member-2" },
+  });
+  assert.equal(otherOwnerList.status, 200);
+  assert.equal(((await otherOwnerList.json()) as { routines: unknown[] }).routines.length, 0);
+});
+
+test("routine validation rejects duplicate exercises", async () => {
+  const response = await fetch(`${baseUrl}/routines`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test:member-3",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ name: "Inválida", description: "", exerciseIds: ["x", "x"] }),
+  });
+  assert.equal(response.status, 400);
 });

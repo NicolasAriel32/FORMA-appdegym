@@ -7,8 +7,10 @@ import {
   getSession,
   getSyncMetadata,
   listOutboxOperations,
+  listCachedExercises,
   openLocalDatabase,
   persistSessionAndOperation,
+  savePublishedExercises,
   saveSyncMetadata,
 } from "../src/platform/local-db.js";
 import type { WorkoutSession } from "../../../packages/domain/src/workout.js";
@@ -103,6 +105,35 @@ test("reusing an outbox operation id with different content aborts the transacti
 
     assert.deepEqual(await getSession(database, "session-2"), undefined);
     assert.deepEqual(await getOutboxOperation(database, "op-1"), operation());
+  } finally {
+    database.close();
+  }
+});
+
+test("published catalog entries persist locally without a delete pass", async () => {
+  const database = await openLocalDatabase(indexedDB, `forma-test-${randomUUID()}`);
+  try {
+    const exercise = {
+      id: "exercise-1",
+      slug: "squat",
+      name: "Sentadilla",
+      description: "",
+      status: "published" as const,
+      createdAt: "2026-11-03T00:00:00.000Z",
+      publishedAt: "2026-11-03T00:00:00.000Z",
+      retiredAt: null,
+      movementPattern: "squat",
+      targetMuscles: ["quadriceps"],
+      secondaryMuscles: ["gluteus maximus"],
+      instructions: "Descender con control",
+      commonMistakes: ["Colapsar rodillas"],
+      safetyNotes: ["Usar carga controlable"],
+      equipment: "barbell",
+      difficulty: "intermediate" as const,
+    };
+    await savePublishedExercises(database, [exercise]);
+    await savePublishedExercises(database, []);
+    assert.deepEqual(await listCachedExercises(database), [exercise]);
   } finally {
     database.close();
   }

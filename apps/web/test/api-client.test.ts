@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   fetchCurrentUser,
+  fetchPublishedExercises,
+  fetchRoutines,
   readApiBaseUrl,
 } from "../src/platform/api-client.js";
 
@@ -64,4 +66,62 @@ test("API errors fail closed and malformed identities are rejected", async () =>
     }),
     { code: "invalid_response" },
   );
+});
+
+test("catalog parser requires professional educational fields", async () => {
+  const exercise = {
+    id: "exercise-1",
+    slug: "back-squat",
+    name: "Sentadilla",
+    description: "Dominante de rodilla",
+    status: "published",
+    createdAt: "2026-11-03T00:00:00.000Z",
+    publishedAt: "2026-11-03T00:00:00.000Z",
+    retiredAt: null,
+    movementPattern: "squat",
+    targetMuscles: ["quadriceps"],
+    secondaryMuscles: ["gluteus maximus"],
+    instructions: "Descender con control",
+    commonMistakes: ["Colapsar rodillas"],
+    safetyNotes: ["Usar carga controlable"],
+    equipment: "barbell",
+    difficulty: "intermediate",
+  };
+  const result = await fetchPublishedExercises({
+    apiBaseUrl: "https://api.forma.test",
+    accessToken: "access-token",
+    fetchImpl: async () => new Response(JSON.stringify({ exercises: [exercise] }), { status: 200 }),
+  });
+  assert.deepEqual(result, [exercise]);
+  await assert.rejects(() => fetchPublishedExercises({
+    apiBaseUrl: "https://api.forma.test",
+    accessToken: "access-token",
+    fetchImpl: async () => new Response(JSON.stringify({ exercises: [{ id: "incomplete" }] }), { status: 200 }),
+  }), { code: "invalid_response" });
+});
+
+test("routine client uses no-store and sends the authenticated bearer", async () => {
+  let receivedInit: RequestInit | undefined;
+  const routine = {
+    id: "routine-1",
+    ownerId: "user-1",
+    name: "Fuerza",
+    description: "",
+    status: "active",
+    revision: 0,
+    createdAt: "2026-11-03T00:00:00.000Z",
+    updatedAt: "2026-11-03T00:00:00.000Z",
+    exercises: [],
+  };
+  const result = await fetchRoutines({
+    apiBaseUrl: "https://api.forma.test",
+    accessToken: "access-token",
+    fetchImpl: async (_input, init) => {
+      receivedInit = init;
+      return new Response(JSON.stringify({ routines: [routine] }), { status: 200 });
+    },
+  });
+  assert.deepEqual(result, [routine]);
+  assert.equal(receivedInit?.cache, "no-store");
+  assert.equal(new Headers(receivedInit?.headers).get("authorization"), "Bearer access-token");
 });

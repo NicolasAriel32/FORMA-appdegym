@@ -16,4 +16,4 @@ Aceptada para el primer incremento visual de la PWA.
 
 ## Alcance de este incremento
 
-Se implementan la carcasa navegable, Inicio, Rutinas, Entrenar, Progreso, Ejercicios y Perfil. La conexión de esas vistas con catálogo, rutinas, estadísticas y sesiones reales queda para incrementos posteriores.
+Se implementan la carcasa navegable, Inicio, Rutinas, Entrenar, Progreso, Ejercicios y Perfil. La biblioteca ya puede mostrar fichas educativas estructuradas cuando recibe catálogo real, las rutinas tienen editor online y el entrenamiento conectado a una identidad FORMA persiste eventos locales. Las métricas de Inicio y Progreso continúan siendo demostrativas hasta conectarse a datos reales.

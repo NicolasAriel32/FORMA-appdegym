@@ -6,6 +6,8 @@
 - Las pruebas automatizadas pasan (cantidad exacta verificada por `npm test` en cada incremento).
 - La API rechaza solicitudes sin identidad y aísla perfiles personales.
 - El endpoint de catálogo requiere autenticación y devuelve solamente ejercicios publicados.
+- El cliente de catálogo falla cerrado cuando faltan campos educativos profesionales.
+- La frontera HTTP de rutinas valida entradas y aísla las rutinas por propietario.
 - La identidad externa se convierte en una identidad interna estable.
 - Las consultas SQL del repositorio de identidad usan parámetros.
 - El núcleo de sesiones respeta propiedad, estados, ejercicios publicados y conflictos.
@@ -16,7 +18,8 @@
 - El inicio offline conserva evidencia local no verificable y rechaza la reutilización incompatible de `operationId`.
 - La PWA compila; el manifest y el Service Worker fueron comprobados sintácticamente.
 - El Service Worker no cachea respuestas autenticadas ni rutas privadas del API.
-- La interfaz navegable compila con Inicio, Rutinas, Entrenar, Progreso, Ejercicios y Perfil; sus datos están marcados como demostración.
+- La interfaz navegable compila con Inicio, Rutinas, Entrenar, Progreso, Ejercicios y Perfil; los datos demo están marcados, mientras que el detalle de catálogo, la edición online de rutinas y los comandos locales de entrenamiento tienen límites explícitos.
+- IndexedDB conserva el catálogo sin una pasada de borrado, y las operaciones offline de series/finalización preservan la secuencia del agregado.
 - La auditoría de npm no reportó vulnerabilidades de severidad alta o superior.
 - No se detectaron secretos ni almacenamiento de tokens en `localStorage` o `sessionStorage`.
 

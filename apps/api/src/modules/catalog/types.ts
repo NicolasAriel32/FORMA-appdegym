@@ -9,4 +9,12 @@ export type CatalogExercise = {
   createdAt: string;
   publishedAt: string | null;
   retiredAt: string | null;
+  movementPattern: string;
+  targetMuscles: string[];
+  secondaryMuscles: string[];
+  instructions: string;
+  commonMistakes: string[];
+  safetyNotes: string[];
+  equipment: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
 };

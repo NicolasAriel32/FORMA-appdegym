@@ -13,6 +13,8 @@ import {
   type PersonalResource,
 } from "../modules/authorization/service.js";
 import { ExerciseCatalogService } from "../modules/catalog/service.js";
+import { RoutineService, RoutineValidationError } from "../modules/routines/service.js";
+import type { RoutineInput } from "../modules/routines/types.js";
 import type {
   ExternalPrincipal,
   InternalUser,
@@ -27,6 +29,7 @@ export type ApiDependencies = {
   identityService: IdentityService;
   resolvePrincipal: PrincipalResolver;
   exerciseCatalogService?: ExerciseCatalogService;
+  routineService?: RoutineService;
 };
 
 type PublicUser = Pick<InternalUser, "id" | "email" | "role" | "createdAt">;
@@ -35,6 +38,7 @@ export function createApiServer({
   identityService,
   resolvePrincipal,
   exerciseCatalogService,
+  routineService,
 }: ApiDependencies): Server {
   return createServer((request, response) => {
     void handleRequest(
@@ -43,6 +47,7 @@ export function createApiServer({
       identityService,
       resolvePrincipal,
       exerciseCatalogService,
+      routineService,
     ).catch(() => {
         if (!response.headersSent) {
           writeJson(response, 500, { error: "internal_error" });
@@ -59,6 +64,7 @@ async function handleRequest(
   identityService: IdentityService,
   resolvePrincipal: PrincipalResolver,
   exerciseCatalogService: ExerciseCatalogService | undefined,
+  routineService: RoutineService | undefined,
 ): Promise<void> {
   const url = new URL(request.url ?? "/", "http://forma.local");
 
@@ -67,7 +73,7 @@ async function handleRequest(
     return;
   }
 
-  if (request.method !== "GET") {
+  if (request.method !== "GET" && request.method !== "POST" && request.method !== "PUT") {
     writeJson(response, 405, { error: "method_not_allowed" });
     return;
   }
@@ -100,6 +106,65 @@ async function handleRequest(
       return;
     }
     writeJson(response, 200, { exercises: await exerciseCatalogService.listPublished() });
+    return;
+  }
+
+  if (url.pathname === "/routines" && request.method === "GET") {
+    if (routineService === undefined) {
+      writeJson(response, 503, { error: "routines_unavailable" });
+      return;
+    }
+    writeJson(response, 200, { routines: await routineService.listOwned(actor.id) });
+    return;
+  }
+
+  const routineMatch = /^\/routines\/([^/]+)$/.exec(url.pathname);
+  if (routineMatch !== null && request.method === "PUT") {
+    if (routineService === undefined) {
+      writeJson(response, 503, { error: "routines_unavailable" });
+      return;
+    }
+    const input = await readRoutineInput(request);
+    if (input === undefined) {
+      writeJson(response, 400, { error: "invalid_routine" });
+      return;
+    }
+    try {
+      const routine = await routineService.updateOwned(actor.id, decodeURIComponent(routineMatch[1]!), input);
+      if (routine === undefined) {
+        writeJson(response, 404, { error: "not_found" });
+        return;
+      }
+      writeJson(response, 200, routine);
+    } catch (error) {
+      if (error instanceof RoutineValidationError) {
+        writeJson(response, 400, { error: "invalid_routine" });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (url.pathname === "/routines" && request.method === "POST") {
+    if (routineService === undefined) {
+      writeJson(response, 503, { error: "routines_unavailable" });
+      return;
+    }
+    const input = await readRoutineInput(request);
+    if (input === undefined) {
+      writeJson(response, 400, { error: "invalid_routine" });
+      return;
+    }
+    try {
+      writeJson(response, 201, await routineService.createOwned(actor.id, input));
+    } catch (error) {
+      if (error instanceof RoutineValidationError) {
+        writeJson(response, 400, { error: "invalid_routine" });
+        return;
+      }
+      throw error;
+    }
     return;
   }
 
@@ -149,4 +214,28 @@ function writeJson(
 ): void {
   response.writeHead(statusCode, { "content-type": "application/json" });
   response.end(JSON.stringify(body));
+}
+
+async function readRoutineInput(request: IncomingMessage): Promise<RoutineInput | undefined> {
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.byteLength;
+    if (totalBytes > 64 * 1024) return undefined;
+    chunks.push(buffer);
+  }
+  try {
+    const value: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    if (!isRecord(value) || typeof value.name !== "string" || typeof value.description !== "string" || !Array.isArray(value.exerciseIds) || value.exerciseIds.some((id) => typeof id !== "string")) {
+      return undefined;
+    }
+    return { name: value.name, description: value.description, exerciseIds: value.exerciseIds };
+  } catch {
+    return undefined;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

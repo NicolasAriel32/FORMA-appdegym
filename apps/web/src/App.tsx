@@ -378,10 +378,42 @@ function ExerciseDetails({ exercise, source, onClose }: { exercise: ExerciseCard
 function ExerciseMediaPreview({ exercise, source }: { exercise: ExerciseCard; source: "demo" | "api" }): ReactElement {
   const [activeView, setActiveView] = useState<"animation" | "muscles" | "angles">("animation");
   const [activePhase, setActivePhase] = useState<"start" | "descent" | "return">("descent");
+  const [isPlaying, setIsPlaying] = useState(true);
   const isSquat = exercise.id === "demo-squat" || exercise.name.toLowerCase().includes("sentadilla");
   const muscleLabel = exercise.education.targetMuscles[0] ?? "Músculo principal";
   const viewLabels = { animation: "Animación", muscles: "Músculos", angles: "Ángulos" } as const;
-  return <div className={`exercise-media-panel media-${exercise.color} ${isSquat ? "is-squat-media" : ""}`}><div className="exercise-media-topline"><span className="exercise-detail-kicker">{source === "api" ? "CONTENIDO OFICIAL" : isSquat ? "PILOTO VISUAL 3D" : "PROTOTIPO VISUAL"}</span><span className="media-status"><span className="media-status-dot" /> Listo offline</span></div><div className="exercise-motion-stage" aria-label={`Vista técnica de ${exercise.name}`}><span className="motion-grid motion-grid-one" /><span className="motion-grid motion-grid-two" /><span className="motion-axis" />{isSquat && activeView === "animation" ? <img className="squat-media-image" src={`/media/exercises/squat-${activePhase}.webp`} alt={`Sentadilla con barra: fase ${activePhase === "start" ? "de inicio" : activePhase === "descent" ? "de descenso" : "de regreso"}`} /> : isSquat ? <SquatTechnicalIllustration phase={activePhase} view={activeView} /> : <ExerciseMotionIllustration color={exercise.color} />}<span className="motion-muscle-label">{activeView === "muscles" ? "Cuádriceps · Glúteos" : muscleLabel}</span><span className="motion-badge">{activeView === "angles" ? "VISTA LATERAL" : activeView === "muscles" ? "MAPA MUSCULAR" : "TÉCNICA"}</span></div>{isSquat ? <div className="motion-phase-row" aria-label="Fases del movimiento"><span>FASES</span><button className={activePhase === "start" ? "is-active" : ""} type="button" onClick={() => setActivePhase("start")}>Inicio</button><button className={activePhase === "descent" ? "is-active" : ""} type="button" onClick={() => setActivePhase("descent")}>Descenso</button><button className={activePhase === "return" ? "is-active" : ""} type="button" onClick={() => setActivePhase("return")}>Regreso</button></div> : null}<div className="exercise-media-tabs" role="tablist" aria-label="Vistas del ejercicio">{(Object.keys(viewLabels) as Array<keyof typeof viewLabels>).map((view) => <button className={activeView === view ? "is-active" : ""} type="button" role="tab" aria-selected={activeView === view} key={view} onClick={() => setActiveView(view)}>{viewLabels[view]}</button>)}</div><p className="media-caption">{isSquat ? "Explorá cada fase para entender la trayectoria de la barra, la flexión de rodilla y la extensión de cadera." : "Este recurso es un prototipo visual de validación; el asset técnico final se incorporará después de la revisión profesional."}</p></div>;
+  const phaseLabels = { start: "de inicio", descent: "de descenso", return: "de regreso" } as const;
+  const phases: Array<"start" | "descent" | "return"> = ["start", "descent", "return"];
+
+  useEffect(() => {
+    if (!isSquat || activeView !== "animation" || !isPlaying) return;
+    const timer = window.setInterval(() => {
+      setActivePhase((current) => phases[(phases.indexOf(current) + 1) % phases.length]!);
+    }, 1100);
+    return () => window.clearInterval(timer);
+  }, [activeView, isPlaying, isSquat]);
+
+  const mediaCaption = !isSquat
+    ? "Este recurso es un prototipo visual de validación; el asset técnico final se incorporará después de la revisión profesional."
+    : activeView === "animation"
+      ? "Loop técnico de 3,3 s: inicio, descenso y regreso. Pausalo para inspeccionar una fase."
+      : activeView === "muscles"
+        ? "Mapa 3D orientativo: cuádriceps, glúteos e isquiosurales participan con distinta demanda según la técnica y la carga."
+        : "Vista técnica de referencia para observar la trayectoria de la barra y la relación entre rodilla, cadera y mediopié.";
+
+  return <div className={`exercise-media-panel media-${exercise.color} ${isSquat ? "is-squat-media" : ""}`}>
+    <div className="exercise-media-topline"><span className="exercise-detail-kicker">{source === "api" ? "CONTENIDO OFICIAL" : isSquat ? "PILOTO VISUAL 3D" : "PROTOTIPO VISUAL"}</span><span className="media-status"><span className="media-status-dot" /> Listo offline</span></div>
+    <div className="exercise-motion-stage" aria-label={`Vista técnica de ${exercise.name}`}>
+      <span className="motion-grid motion-grid-one" /><span className="motion-grid motion-grid-two" /><span className="motion-axis" />
+      {isSquat && activeView === "animation" ? <div className="squat-media-frame" key={`animation-${activePhase}`}><img className="squat-media-image" src={`/media/exercises/squat-${activePhase}.webp`} alt={`Sentadilla con barra: fase ${phaseLabels[activePhase]}`} /></div> : null}
+      {isSquat && activeView === "muscles" ? <div className="squat-media-frame squat-muscle-frame"><img className="squat-media-image" src="/media/exercises/squat-muscles.webp" alt="Mapa 3D de músculos activos en sentadilla con barra" /></div> : null}
+      {isSquat && activeView === "angles" ? <SquatTechnicalIllustration phase={activePhase} view={activeView} /> : null}
+      {!isSquat ? <ExerciseMotionIllustration color={exercise.color} /> : null}
+      <span className="motion-muscle-label">{activeView === "muscles" ? "Cuádriceps · Glúteos · Isquios" : muscleLabel}</span><span className="motion-badge">{activeView === "angles" ? "VISTA LATERAL" : activeView === "muscles" ? "MAPA 3D" : "TÉCNICA"}</span>
+    </div>
+    {isSquat ? <div className="motion-phase-row" aria-label="Fases del movimiento"><span>FASES</span><button className={activePhase === "start" ? "is-active" : ""} type="button" onClick={() => setActivePhase("start")}>Inicio</button><button className={activePhase === "descent" ? "is-active" : ""} type="button" onClick={() => setActivePhase("descent")}>Descenso</button><button className={activePhase === "return" ? "is-active" : ""} type="button" onClick={() => setActivePhase("return")}>Regreso</button>{activeView === "animation" ? <button className="motion-play-toggle" type="button" aria-pressed={isPlaying} onClick={() => setIsPlaying((value) => !value)}>{isPlaying ? "Pausar" : "Reproducir"}</button> : null}</div> : null}
+    <div className="exercise-media-tabs" role="tablist" aria-label="Vistas del ejercicio">{(Object.keys(viewLabels) as Array<keyof typeof viewLabels>).map((view) => <button className={activeView === view ? "is-active" : ""} type="button" role="tab" aria-selected={activeView === view} key={view} onClick={() => setActiveView(view)}>{viewLabels[view]}</button>)}</div><p className="media-caption">{mediaCaption}</p>
+  </div>;
 }
 
 function SquatTechnicalIllustration({ phase, view }: { phase: "start" | "descent" | "return"; view: "animation" | "muscles" | "angles" }): ReactElement {

@@ -27,6 +27,12 @@ The following schema is present in the project:
 
 The initial schema was bootstrapped through the Supabase SQL connection after inspecting the empty project. The repository migrations `0001` through `0005` are the source files and should be formalized in the project migration history before production use.
 
+## Web authentication boundary
+
+The PWA uses the project URL and publishable key only through `VITE_SUPABASE_*` build variables. The browser client deliberately uses `persistSession: false`, `autoRefreshToken: false`, and `detectSessionInUrl: false` for this increment. This keeps the offline unlock and credential-storage policy explicit; it does not claim that authenticated offline training is implemented.
+
+The API-side resolver validates the received bearer token with Supabase Auth and maps the external Auth UUID to the stable internal `app_users.id`. No service key is used by the web client, and no provider error text is shown as an authentication result to the user.
+
 ## Verification
 
 - All public tables have RLS enabled.

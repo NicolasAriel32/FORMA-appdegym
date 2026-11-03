@@ -20,7 +20,7 @@ body { margin: 0; min-width: 320px; }
   padding: 32px 20px;
 }
 
-.hero, .technical-card {
+.hero, .auth-card, .technical-card {
   background: #ffffff;
   border: 1px solid #dce8e4;
   border-radius: 24px;
@@ -64,6 +64,55 @@ h2 { font-size: clamp(1.5rem, 4vw, 2.2rem); }
 .connection-status.is-offline { background: #fff3e8; color: #8a4b20; }
 .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #2b9b67; }
 .is-offline .status-dot { background: #d77935; }
+
+.auth-card {
+  display: grid;
+  gap: 20px;
+  padding: 28px;
+}
+
+.auth-form {
+  display: grid;
+  gap: 16px;
+  max-width: 480px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 7px;
+  color: #31544d;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.auth-form input {
+  width: 100%;
+  border: 1px solid #bfd3cd;
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: #173b37;
+  background: #fbfdfc;
+  font: inherit;
+}
+
+button {
+  width: fit-content;
+  border: 0;
+  border-radius: 999px;
+  padding: 11px 17px;
+  color: #ffffff;
+  background: #1f7766;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+.muted, .security-note { color: #4f6661; line-height: 1.55; }
+.security-note { margin: 0; font-size: 0.92rem; }
+.form-error { margin: 0; color: #9a3f2f; font-weight: 700; }
+.signed-in-panel { display: grid; gap: 12px; }
+.signed-in-panel p { margin: 0; }
 
 .technical-card {
   display: grid;

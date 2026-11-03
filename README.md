@@ -1,10 +1,10 @@
 # FORMA
 
-Primer incremento técnico de FORMA: identidad interna y aislamiento de datos.
+Incrementos técnicos iniciales de FORMA: identidad interna, aislamiento de datos y frontera de autenticación web.
 
 ## Estado
 
-Este repositorio contiene la base verificable del incremento I1. Supabase ya fue seleccionado y configurado como entorno de desarrollo; la integración completa de autenticación en la PWA, el API desplegado y producción todavía no están habilitados.
+Este repositorio contiene la base verificable de I1 y el inicio de I2. Supabase está configurado como entorno de desarrollo, la PWA ya tiene una frontera de autenticación por correo/contraseña y el servidor tiene un resolvedor que valida bearer tokens mediante Supabase Auth. El API todavía no está desplegado y no se creó ningún usuario de prueba.
 
 El esquema inicial fue aplicado con RLS. Las instrucciones y variables están en `docs/supabase-development.md` y `.env.example`.
 
@@ -24,15 +24,15 @@ npm run build
 npm run build:web
 ```
 
-## Límites deliberados del incremento I1
+## Límites deliberados de los incrementos actuales
 
-- No conecta todavía autenticación administrada ni PostgreSQL.
+- La sesión web no se persiste ni se renueva automáticamente: esto evita convertir almacenamiento de credenciales en una decisión offline implícita.
+- Todavía no se habilitó el desbloqueo offline de la identidad.
 - No implementa todavía la interfaz funcional de sesiones.
 - No ejecuta sincronización contra una API remota.
 - No implementa consentimiento ni consulta de sesiones por entrenadores.
-- No configura proveedores externos.
-- No contiene credenciales ni servicios desplegados.
+- No contiene credenciales ni servicios de aplicación desplegados.
 
 ## Próximo paso
 
-Conectar el adaptador de resolución de identidad a un proveedor administrado aprobado, conservando el límite de la API y las reglas de aislamiento verificadas en I1.
+Conectar la PWA autenticada con el endpoint `/me` y un repositorio persistente de identidad, manteniendo las políticas RLS y el aislamiento verificados en I1.

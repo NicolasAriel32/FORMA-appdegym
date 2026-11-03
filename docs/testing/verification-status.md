@@ -3,7 +3,7 @@
 ## Verificado en el entorno local
 
 - TypeScript compila en modo estricto.
-- 34 pruebas automatizadas pasan.
+- Las pruebas automatizadas pasan (cantidad exacta verificada por `npm test` en cada incremento).
 - La API rechaza solicitudes sin identidad y aísla perfiles personales.
 - La identidad externa se convierte en una identidad interna estable.
 - Las consultas SQL del repositorio de identidad usan parámetros.
@@ -18,8 +18,8 @@
 
 ## Todavía no verificado
 
-- PostgreSQL real y ejecución de migraciones.
-- Proveedor administrado de autenticación.
+- Flujo de inicio de sesión contra un usuario real de Supabase Auth; no se creó un usuario de prueba automáticamente.
+- API desplegado y `/me` conectado a PostgreSQL persistente.
 - Navegadores reales, instalación PWA y comportamiento offline entre versiones.
 - API remota de sincronización.
 - Restauración de backups, PITR, RPO y RTO.

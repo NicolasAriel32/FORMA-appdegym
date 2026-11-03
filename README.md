@@ -29,7 +29,6 @@ npm run build:web
 ## Límites deliberados de los incrementos actuales
 
 - La sesión web no se persiste ni se renueva automáticamente: esto evita convertir almacenamiento de credenciales en una decisión offline implícita.
-- Todavía no se habilitó el desbloqueo offline de la identidad.
 - La sesión offline no conserva credenciales ni permite desbloqueo offline; requiere una identidad FORMA ya validada para habilitar el flujo real.
 - El catálogo educativo tiene contrato y ficha de lectura, pero la administración editorial y la revisión humana del contenido quedan fuera del cliente.
 - La edición estructural de rutinas es online y no crea operaciones offline.

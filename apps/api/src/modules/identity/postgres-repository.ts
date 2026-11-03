@@ -1,12 +1,8 @@
 import type { IdentityRepository } from "./repository.js";
 import type { InternalUser, UserId } from "./types.js";
+import type { SqlClient } from "../../platform/sql-client.js";
 
-export type SqlClient = {
-  query<Row extends Record<string, unknown>>(
-    text: string,
-    values: readonly unknown[],
-  ): Promise<{ rows: Row[] }>;
-};
+export type { SqlClient } from "../../platform/sql-client.js";
 
 type IdentityRow = {
   id: string;

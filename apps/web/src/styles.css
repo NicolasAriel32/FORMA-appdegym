@@ -219,6 +219,31 @@ h3 { margin-bottom: 4px; color: #fff; font-size: 1.02rem; }
 .exercise-media-tabs button { min-height: 31px; border-radius: 8px; color: #9d9aaf; background: transparent; font-size: .62rem; font-weight: 900; cursor: pointer; }
 .exercise-media-tabs button.is-active { color: #f2efff; background: rgba(255,255,255,.12); box-shadow: 0 2px 8px rgba(0,0,0,.12); }
 .media-caption { margin: 10px 2px 0; color: rgba(222,218,239,.56); font-size: .59rem; line-height: 1.4; }
+.motion-phase-row { display: flex; align-items: center; gap: 5px; margin-top: 10px; padding: 4px; border: 1px solid rgba(255,255,255,.08); border-radius: 11px; background: rgba(0,0,0,.13); }
+.motion-phase-row > span { margin: 0 4px 0 6px; color: #89859e; font-size: .52rem; font-weight: 900; letter-spacing: .12em; }
+.motion-phase-row button { min-height: 28px; padding: 0 8px; border-radius: 7px; color: #9d9aaf; background: transparent; font-size: .59rem; font-weight: 900; cursor: pointer; }
+.motion-phase-row button.is-active { color: #f2efff; background: rgba(255,255,255,.12); }
+.squat-figure { position: relative; z-index: 2; width: 230px; height: 190px; overflow: visible; color: #ebe7ff; filter: drop-shadow(0 15px 18px rgba(111,92,225,.3)); }
+.squat-rack, .squat-floor { fill: none; stroke: rgba(238,233,255,.28); stroke-linecap: round; stroke-width: 2; }
+.squat-floor { stroke: rgba(238,233,255,.42); stroke-width: 3; }
+.squat-bar { fill: none; stroke: #d5d0f7; stroke-linecap: round; stroke-width: 4; }
+.squat-bar circle { fill: #f4b378; stroke: none; }
+.squat-body { transform-origin: 104px 88px; transition: transform .35s ease; }
+.squat-start .squat-body { transform: translateY(0); }
+.squat-return .squat-body { transform: translateY(-2px) rotate(-1deg); }
+.squat-bottom .squat-body { transform: translate(-1px, 15px) rotate(-8deg); }
+.squat-head { fill: url(#squat-skin); }
+.squat-torso, .squat-hip { fill: url(#squat-skin); stroke: rgba(255,255,255,.18); stroke-width: 1; }
+.squat-arm, .squat-leg, .squat-foot { fill: none; stroke: url(#squat-skin); stroke-linecap: round; stroke-linejoin: round; stroke-width: 8; }
+.squat-foot { stroke-width: 5; }
+.squat-view-muscles .squat-body { filter: drop-shadow(0 0 7px rgba(255,139,103,.5)); }
+.squat-muscle-map ellipse { fill: url(#squat-highlight); opacity: .92; }
+.squat-muscle-map path, .squat-angle-map path { fill: none; stroke: #ffb978; stroke-dasharray: 3 4; stroke-linecap: round; stroke-width: 1.5; }
+.squat-muscle-map text, .squat-angle-map text { fill: #ffd2a5; font-family: inherit; font-size: 6px; font-weight: 900; letter-spacing: .08em; }
+.squat-angle-map path { stroke: #b8adff; }
+.squat-angle-map text { fill: #d0c8ff; font-size: 6px; letter-spacing: 0; }
+.squat-view-angles .squat-body { opacity: .7; }
+.squat-view-angles .squat-bar { opacity: .8; }
 @keyframes motion-breathe { 0%, 100% { transform: translateY(1px) scale(1); } 50% { transform: translateY(-3px) scale(1.015); } }
 .exercise-visual-blue { background: linear-gradient(135deg, rgba(72,132,224,.28), rgba(27,43,76,.3)); }
 .exercise-visual-green { background: linear-gradient(135deg, rgba(47,151,112,.25), rgba(22,53,48,.3)); }

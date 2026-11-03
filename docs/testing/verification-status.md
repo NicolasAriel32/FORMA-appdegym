@@ -12,6 +12,7 @@
 - El cursor exige continuidad de ámbito y cursor.
 - Los snapshots exigen manifiesto verificado, páginas completas, misma generación y TTL vigente.
 - IndexedDB simulado confirma persistencia atómica de sesión y outbox.
+- El inicio offline conserva evidencia local no verificable y rechaza la reutilización incompatible de `operationId`.
 - La PWA compila; el manifest y el Service Worker fueron comprobados sintácticamente.
 - La auditoría de npm no reportó vulnerabilidades de severidad alta o superior.
 - No se detectaron secretos ni almacenamiento de tokens en `localStorage` o `sessionStorage`.

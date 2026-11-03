@@ -84,3 +84,26 @@ test("an invalid outbox key aborts the combined transaction", async () => {
     database.close();
   }
 });
+
+test("reusing an outbox operation id with different content aborts the transaction", async () => {
+  const database = await openLocalDatabase(indexedDB, `forma-test-${randomUUID()}`);
+  try {
+    await persistSessionAndOperation(database, session(), operation());
+
+    await assert.rejects(() =>
+      persistSessionAndOperation(database, {
+        ...session(),
+        id: "session-2" as WorkoutSession["id"],
+      }, {
+        ...operation(),
+        aggregateId: "session-2",
+      }),
+      /operation id reused with different content/,
+    );
+
+    assert.deepEqual(await getSession(database, "session-2"), undefined);
+    assert.deepEqual(await getOutboxOperation(database, "op-1"), operation());
+  } finally {
+    database.close();
+  }
+});

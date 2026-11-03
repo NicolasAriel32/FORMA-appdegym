@@ -19,6 +19,13 @@ export type LocalDatabase = {
   close: () => void;
 };
 
+export class LocalPersistenceError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = "LocalPersistenceError";
+  }
+}
+
 export function openLocalDatabase(
   indexedDBFactory: IDBFactory,
   databaseName: string,
@@ -63,14 +70,63 @@ export async function persistSessionAndOperation(
     [LOCAL_STORE_NAMES.workoutSessions, LOCAL_STORE_NAMES.outbox],
     "readwrite",
   );
-  try {
-    transaction.objectStore(LOCAL_STORE_NAMES.workoutSessions).put(session);
-    transaction.objectStore(LOCAL_STORE_NAMES.outbox).put(operation);
-  } catch (error) {
-    transaction.abort();
-    throw error;
-  }
-  await transactionComplete(transaction);
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const resolveOnce = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+    const rejectOnce = (error: unknown) => {
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    };
+
+    transaction.oncomplete = resolveOnce;
+    transaction.onerror = () => rejectOnce(
+      transaction.error ?? new Error("indexedDB transaction failed"),
+    );
+    transaction.onabort = () => rejectOnce(
+      transaction.error ?? new Error("indexedDB transaction aborted"),
+    );
+
+    try {
+      const outboxStore = transaction.objectStore(LOCAL_STORE_NAMES.outbox);
+      const existingRequest = outboxStore.get(operation.operationId);
+      existingRequest.onerror = () => rejectOnce(
+        existingRequest.error ?? new Error("failed to read outbox operation"),
+      );
+      existingRequest.onsuccess = () => {
+        try {
+          const existing = existingRequest.result as SyncOperation | undefined;
+          if (
+            existing !== undefined &&
+            canonicalJson(existing) !== canonicalJson(operation)
+          ) {
+            throw new LocalPersistenceError(
+              "operation id reused with different content",
+            );
+          }
+
+          transaction
+            .objectStore(LOCAL_STORE_NAMES.workoutSessions)
+            .put(session);
+          if (existing === undefined) {
+            outboxStore.put(operation);
+          }
+        } catch (error) {
+          rejectOnce(error);
+          transaction.abort();
+        }
+      };
+    } catch (error) {
+      rejectOnce(error);
+      transaction.abort();
+    }
+  });
 }
 
 export async function getSession(
@@ -151,4 +207,18 @@ function transactionComplete(transaction: IDBTransaction): Promise<void> {
     transaction.onerror = () => reject(transaction.error ?? new Error("indexedDB transaction failed"));
     transaction.onabort = () => reject(transaction.error ?? new Error("indexedDB transaction aborted"));
   });
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(",")}]`;
+  }
+  if (value !== null && typeof value === "object") {
+    const object = value as Record<string, unknown>;
+    return `{${Object.keys(object)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(object[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "undefined";
 }

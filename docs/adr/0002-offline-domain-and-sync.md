@@ -15,6 +15,9 @@ Aceptada como base técnica de los incrementos offline. La implementación contr
 - Un conflicto incompatible pasa a recuperación y no sobrescribe silenciosamente la edición local.
 - El cursor solo avanza desde el cursor persistido del mismo ámbito.
 - Un snapshot requiere manifiesto verificado, páginas de la misma generación, integridad verificada y TTL vigente.
+- El primer comando offline de entrenamiento persiste una sesión iniciada y su operación pendiente en una única transacción IndexedDB.
+- La evidencia de inicio local se marca como `local_time_unverified`; no habilita por sí sola el acceso histórico o futuro de entrenadores.
+- Reutilizar un `operationId` con contenido distinto aborta la transacción y conserva la operación original.
 
 ## Lo que todavía no se declara verificado
 

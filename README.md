@@ -19,12 +19,14 @@ El código separa la identidad externa administrada de la identidad interna esta
 npm install
 npm test
 npm run build
+npm run build:web
 ```
 
 ## Límites deliberados del incremento I1
 
-- No implementa sesiones de entrenamiento.
-- No implementa sincronización offline.
+- No conecta todavía autenticación administrada ni PostgreSQL.
+- No implementa todavía la interfaz funcional de sesiones.
+- No ejecuta sincronización contra una API remota.
 - No implementa consentimiento ni consulta de sesiones por entrenadores.
 - No configura proveedores externos.
 - No contiene credenciales ni servicios desplegados.

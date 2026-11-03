@@ -77,3 +77,12 @@ test("a user cannot read another user's profile", async () => {
   assert.equal(response.status, 403);
   assert.deepEqual(await response.json(), { error: "forbidden" });
 });
+
+test("invalid external identity data is rejected", async () => {
+  const response = await fetch(`${baseUrl}/me`, {
+    headers: { authorization: "Bearer test:" },
+  });
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(await response.json(), { error: "invalid_identity" });
+});

@@ -18,7 +18,7 @@ function createIdentityService(): IdentityService {
   );
 }
 
-test("the same external identity resolves to one stable internal identity", () => {
+test("the same external identity resolves to one stable internal identity", async () => {
   const service = createIdentityService();
   const principal = {
     provider: "managed-auth",
@@ -26,22 +26,22 @@ test("the same external identity resolves to one stable internal identity", () =
     email: "member@example.test",
   };
 
-  const first = service.resolveOrCreate(principal);
-  const second = service.resolveOrCreate(principal);
+  const first = await service.resolveOrCreate(principal);
+  const second = await service.resolveOrCreate(principal);
 
   assert.equal(first.id, second.id);
   assert.equal(first.createdAt, "2026-11-03T00:00:00.000Z");
   assert.equal(first.role, "member");
 });
 
-test("different external identities receive different internal identities", () => {
+test("different external identities receive different internal identities", async () => {
   const service = createIdentityService();
 
-  const member = service.resolveOrCreate({
+  const member = await service.resolveOrCreate({
     provider: "managed-auth",
     subject: "member-1",
   });
-  const otherMember = service.resolveOrCreate({
+  const otherMember = await service.resolveOrCreate({
     provider: "managed-auth",
     subject: "member-2",
   });
@@ -49,13 +49,13 @@ test("different external identities receive different internal identities", () =
   assert.notEqual(member.id, otherMember.id);
 });
 
-test("a member can read only their own personal resources", () => {
+test("a member can read only their own personal resources", async () => {
   const service = createIdentityService();
-  const member = service.resolveOrCreate({
+  const member = await service.resolveOrCreate({
     provider: "managed-auth",
     subject: "member-1",
   });
-  const otherMember = service.resolveOrCreate({
+  const otherMember = await service.resolveOrCreate({
     provider: "managed-auth",
     subject: "member-2",
   });
@@ -76,13 +76,13 @@ test("a member can read only their own personal resources", () => {
   );
 });
 
-test("a trainer role does not grant access to a member's personal session", () => {
+test("a trainer role does not grant access to a member's personal session", async () => {
   const service = createIdentityService();
-  const trainer = service.resolveOrCreate({
+  const trainer = await service.resolveOrCreate({
     provider: "managed-auth",
     subject: "trainer-1",
   });
-  const member = service.resolveOrCreate({
+  const member = await service.resolveOrCreate({
     provider: "managed-auth",
     subject: "member-1",
   });

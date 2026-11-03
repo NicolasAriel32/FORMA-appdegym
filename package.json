@@ -5,10 +5,22 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/apps/api/test/*.test.js"
+    "build:web": "vite build --config apps/web/vite.config.ts",
+    "dev:web": "vite --config apps/web/vite.config.ts",
+    "preview:web": "vite preview --config apps/web/vite.config.ts",
+    "test": "npm run build && node --test dist/apps/api/test/*.test.js dist/apps/web/test/*.test.js dist/packages/domain/test/*.test.js dist/packages/sync/test/*.test.js"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
-    "typescript": "^5.8.3"
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "fake-indexeddb": "^6.2.7",
+    "typescript": "^5.8.3",
+    "vite": "^8.3.5"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   }
 }

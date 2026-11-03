@@ -1,5 +1,13 @@
-import { createServer, type Server, type ServerResponse } from "node:http";
-import type { IdentityService } from "../modules/identity/service.js";
+import {
+  createServer,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+} from "node:http";
+import {
+  IdentityService,
+  InvalidExternalPrincipalError,
+} from "../modules/identity/service.js";
 import {
   assertCanReadPersonalResource,
   type PersonalResource,
@@ -26,46 +34,86 @@ export function createApiServer({
   resolvePrincipal,
 }: ApiDependencies): Server {
   return createServer((request, response) => {
-    const url = new URL(request.url ?? "/", "http://forma.local");
-
-    if (request.method === "GET" && url.pathname === "/health") {
-      return writeJson(response, 200, { status: "ok" });
-    }
-
-    if (request.method !== "GET") {
-      return writeJson(response, 405, { error: "method_not_allowed" });
-    }
-
-    const principal = resolvePrincipal(request.headers.authorization);
-    if (principal === undefined) {
-      return writeJson(response, 401, { error: "unauthenticated" });
-    }
-
-    const actor = identityService.resolveOrCreate(principal);
-
-    if (url.pathname === "/me") {
-      return writeJson(response, 200, toPublicUser(actor));
-    }
-
-    const profileMatch = /^\/profiles\/([^/]+)$/.exec(url.pathname);
-    if (profileMatch !== null) {
-      const ownerId = decodeURIComponent(profileMatch[1]!) as UserId;
-      const owner = identityService.getById(ownerId);
-      if (owner === undefined) {
-        return writeJson(response, 404, { error: "not_found" });
-      }
-
-      const resource: PersonalResource = { type: "profile", ownerId };
-      try {
-        assertCanReadPersonalResource(actor, resource);
-      } catch {
-        return writeJson(response, 403, { error: "forbidden" });
-      }
-      return writeJson(response, 200, toPublicUser(owner));
-    }
-
-    return writeJson(response, 404, { error: "not_found" });
+    void handleRequest(request, response, identityService, resolvePrincipal).catch(
+      () => {
+        if (!response.headersSent) {
+          writeJson(response, 500, { error: "internal_error" });
+        } else if (!response.writableEnded) {
+          response.end();
+        }
+      },
+    );
   });
+}
+
+async function handleRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  identityService: IdentityService,
+  resolvePrincipal: PrincipalResolver,
+): Promise<void> {
+  const url = new URL(request.url ?? "/", "http://forma.local");
+
+  if (request.method === "GET" && url.pathname === "/health") {
+    writeJson(response, 200, { status: "ok" });
+    return;
+  }
+
+  if (request.method !== "GET") {
+    writeJson(response, 405, { error: "method_not_allowed" });
+    return;
+  }
+
+  const principal = resolvePrincipal(request.headers.authorization);
+  if (principal === undefined) {
+    writeJson(response, 401, { error: "unauthenticated" });
+    return;
+  }
+
+  let actor: InternalUser;
+  try {
+    actor = await identityService.resolveOrCreate(principal);
+  } catch (error) {
+    if (error instanceof InvalidExternalPrincipalError) {
+      writeJson(response, 401, { error: "invalid_identity" });
+      return;
+    }
+    throw error;
+  }
+
+  if (url.pathname === "/me") {
+    writeJson(response, 200, toPublicUser(actor));
+    return;
+  }
+
+  const profileMatch = /^\/profiles\/([^/]+)$/.exec(url.pathname);
+  if (profileMatch !== null) {
+    let ownerId: UserId;
+    try {
+      ownerId = decodeURIComponent(profileMatch[1]!) as UserId;
+    } catch {
+      writeJson(response, 400, { error: "invalid_resource_id" });
+      return;
+    }
+
+    const resource: PersonalResource = { type: "profile", ownerId };
+    try {
+      assertCanReadPersonalResource(actor, resource);
+    } catch {
+      writeJson(response, 403, { error: "forbidden" });
+      return;
+    }
+
+    const owner = await identityService.getById(ownerId);
+    if (owner === undefined) {
+      writeJson(response, 404, { error: "not_found" });
+      return;
+    }
+    writeJson(response, 200, toPublicUser(owner));
+    return;
+  }
+
+  writeJson(response, 404, { error: "not_found" });
 }
 
 function toPublicUser(user: InternalUser): PublicUser {

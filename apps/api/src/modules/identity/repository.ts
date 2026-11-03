@@ -4,39 +4,46 @@ export interface IdentityRepository {
   findByExternalIdentity(
     provider: string,
     subject: string,
-  ): InternalUser | undefined;
-  findById(id: UserId): InternalUser | undefined;
-  insert(user: InternalUser): InternalUser;
+  ): Promise<InternalUser | undefined>;
+  findById(id: UserId): Promise<InternalUser | undefined>;
+  insertIfAbsent(user: InternalUser): Promise<InternalUser>;
 }
 
 export class InMemoryIdentityRepository implements IdentityRepository {
   private readonly byId = new Map<UserId, InternalUser>();
   private readonly byExternalIdentity = new Map<string, UserId>();
 
-  findByExternalIdentity(
+  async findByExternalIdentity(
     provider: string,
     subject: string,
-  ): InternalUser | undefined {
+  ): Promise<InternalUser | undefined> {
     const id = this.byExternalIdentity.get(this.externalKey(provider, subject));
-    return id === undefined ? undefined : this.byId.get(id);
+    const user = id === undefined ? undefined : this.byId.get(id);
+    return user === undefined ? undefined : { ...user };
   }
 
-  findById(id: UserId): InternalUser | undefined {
-    return this.byId.get(id);
+  async findById(id: UserId): Promise<InternalUser | undefined> {
+    const user = this.byId.get(id);
+    return user === undefined ? undefined : { ...user };
   }
 
-  insert(user: InternalUser): InternalUser {
+  async insertIfAbsent(user: InternalUser): Promise<InternalUser> {
     const key = this.externalKey(user.externalProvider, user.externalSubject);
-    if (this.byExternalIdentity.has(key)) {
-      throw new Error("external identity already exists");
+    const existingId = this.byExternalIdentity.get(key);
+    if (existingId !== undefined) {
+      const existing = this.byId.get(existingId);
+      if (existing === undefined) {
+        throw new Error("identity index is inconsistent");
+      }
+      return { ...existing };
     }
     if (this.byId.has(user.id)) {
       throw new Error("internal user id already exists");
     }
 
-    this.byId.set(user.id, user);
+    this.byId.set(user.id, { ...user });
     this.byExternalIdentity.set(key, user.id);
-    return user;
+    return { ...user };
   }
 
   private externalKey(provider: string, subject: string): string {

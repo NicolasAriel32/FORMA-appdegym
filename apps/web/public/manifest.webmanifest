@@ -1,0 +1,10 @@
+{
+  "name": "FORMA",
+  "short_name": "FORMA",
+  "description": "Entrenamiento personal offline-first",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7f6",
+  "theme_color": "#173b37",
+  "lang": "es-AR"
+}

@@ -11,10 +11,12 @@ export type ExternalPrincipal = {
   provider: string;
   subject: string;
   email?: string;
+  authUserId?: string | null;
 };
 
 export type InternalUser = {
   id: UserId;
+  authUserId: string | null;
   externalProvider: string;
   externalSubject: string;
   email: string | null;

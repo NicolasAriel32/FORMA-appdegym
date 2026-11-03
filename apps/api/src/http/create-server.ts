@@ -20,7 +20,7 @@ import type {
 
 export type PrincipalResolver = (
   authorizationHeader: string | undefined,
-) => ExternalPrincipal | undefined;
+) => Promise<ExternalPrincipal | undefined>;
 
 export type ApiDependencies = {
   identityService: IdentityService;
@@ -64,7 +64,7 @@ async function handleRequest(
     return;
   }
 
-  const principal = resolvePrincipal(request.headers.authorization);
+  const principal = await resolvePrincipal(request.headers.authorization);
   if (principal === undefined) {
     writeJson(response, 401, { error: "unauthenticated" });
     return;

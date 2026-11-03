@@ -19,7 +19,7 @@ const identityService = new IdentityService(
 
 const server = createApiServer({
   identityService,
-  resolvePrincipal: (authorizationHeader) => {
+  resolvePrincipal: async (authorizationHeader) => {
     const token = authorizationHeader?.replace("Bearer test:", "");
     return token === undefined || token === authorizationHeader
       ? undefined

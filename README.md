@@ -4,7 +4,9 @@ Primer incremento técnico de FORMA: identidad interna y aislamiento de datos.
 
 ## Estado
 
-Este repositorio contiene únicamente la base verificable del incremento I1. El proveedor de autenticación, PostgreSQL administrado y los servicios de despliegue todavía no están configurados.
+Este repositorio contiene la base verificable del incremento I1. Supabase ya fue seleccionado y configurado como entorno de desarrollo; la integración completa de autenticación en la PWA, el API desplegado y producción todavía no están habilitados.
+
+El esquema inicial fue aplicado con RLS. Las instrucciones y variables están en `docs/supabase-development.md` y `.env.example`.
 
 El código separa la identidad externa administrada de la identidad interna estable de FORMA. La autorización es denegada por defecto para datos personales de terceros, incluidos los datos de miembros que puedan pertenecer a un entrenador.
 

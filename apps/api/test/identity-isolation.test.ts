@@ -30,6 +30,7 @@ test("the same external identity resolves to one stable internal identity", asyn
   const second = await service.resolveOrCreate(principal);
 
   assert.equal(first.id, second.id);
+  assert.equal(first.authUserId, null);
   assert.equal(first.createdAt, "2026-11-03T00:00:00.000Z");
   assert.equal(first.role, "member");
 });

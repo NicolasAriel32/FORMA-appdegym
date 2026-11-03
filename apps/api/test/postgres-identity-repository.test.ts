@@ -19,6 +19,7 @@ class FakeSqlClient implements SqlClient {
 
 const row = (overrides: Partial<Record<string, unknown>> = {}) => ({
   id: "00000000-0000-0000-0000-000000000001",
+  auth_user_id: null,
   external_provider: "managed-auth",
   external_subject: "subject-1",
   email: "member@example.test",
@@ -29,6 +30,7 @@ const row = (overrides: Partial<Record<string, unknown>> = {}) => ({
 
 const user: InternalUser = {
   id: row().id as InternalUser["id"],
+  authUserId: null,
   externalProvider: "managed-auth",
   externalSubject: "subject-1",
   email: "member@example.test",
@@ -58,6 +60,7 @@ test("insertIfAbsent returns the inserted user without a second lookup", async (
   assert.match(client.calls[0]?.text ?? "", /on conflict \(external_provider, external_subject\) do nothing/);
   assert.deepEqual(client.calls[0]?.values, [
     user.id,
+    user.authUserId,
     user.externalProvider,
     user.externalSubject,
     user.email,

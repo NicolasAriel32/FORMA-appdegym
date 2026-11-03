@@ -32,6 +32,7 @@ export class IdentityService {
 
     return this.repository.insertIfAbsent({
       id: this.createUserId(),
+      authUserId: principal.authUserId ?? null,
       externalProvider: principal.provider,
       externalSubject: principal.subject,
       email: principal.email ?? null,

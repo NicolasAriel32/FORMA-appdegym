@@ -10,6 +10,7 @@ export type SqlClient = {
 
 type IdentityRow = {
   id: string;
+  auth_user_id: string | null;
   external_provider: string;
   external_subject: string;
   email: string | null;
@@ -25,7 +26,7 @@ export class PostgresIdentityRepository implements IdentityRepository {
     subject: string,
   ): Promise<InternalUser | undefined> {
     const result = await this.client.query<IdentityRow>(
-      `select id, external_provider, external_subject, email, role, created_at
+      `select id, auth_user_id, external_provider, external_subject, email, role, created_at
        from app_users
        where external_provider = $1 and external_subject = $2`,
       [provider, subject],
@@ -36,7 +37,7 @@ export class PostgresIdentityRepository implements IdentityRepository {
 
   async findById(id: UserId): Promise<InternalUser | undefined> {
     const result = await this.client.query<IdentityRow>(
-      `select id, external_provider, external_subject, email, role, created_at
+      `select id, auth_user_id, external_provider, external_subject, email, role, created_at
        from app_users
        where id = $1`,
       [id],
@@ -48,12 +49,13 @@ export class PostgresIdentityRepository implements IdentityRepository {
   async insertIfAbsent(user: InternalUser): Promise<InternalUser> {
     const inserted = await this.client.query<IdentityRow>(
       `insert into app_users
-         (id, external_provider, external_subject, email, role, created_at)
-       values ($1, $2, $3, $4, $5, $6)
+         (id, auth_user_id, external_provider, external_subject, email, role, created_at)
+       values ($1, $2, $3, $4, $5, $6, $7)
        on conflict (external_provider, external_subject) do nothing
-       returning id, external_provider, external_subject, email, role, created_at`,
+       returning id, auth_user_id, external_provider, external_subject, email, role, created_at`,
       [
         user.id,
+        user.authUserId,
         user.externalProvider,
         user.externalSubject,
         user.email,
@@ -83,6 +85,7 @@ function toInternalUser(row: IdentityRow): InternalUser {
   }
   return {
     id: row.id as UserId,
+    authUserId: row.auth_user_id,
     externalProvider: row.external_provider,
     externalSubject: row.external_subject,
     email: row.email,

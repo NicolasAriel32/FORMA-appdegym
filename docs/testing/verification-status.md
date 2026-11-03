@@ -25,6 +25,7 @@
 - La PWA compila; el manifest y el Service Worker fueron comprobados sintácticamente.
 - El Service Worker no cachea respuestas autenticadas ni rutas privadas del API.
 - La interfaz navegable compila con Inicio, Rutinas, Entrenar, Progreso, Ejercicios y Perfil; los datos demo están marcados, mientras que el detalle de catálogo, la edición online de rutinas y los comandos locales de entrenamiento tienen límites explícitos.
+- La pantalla de entrenamiento permite editar carga y repeticiones, refleja los valores ingresados en la tabla demo, valida los valores inválidos y activa el temporizador de descanso después de guardar una serie.
 - IndexedDB conserva el catálogo sin una pasada de borrado, y las operaciones offline de series/finalización preservan la secuencia del agregado.
 - La auditoría de npm no reportó vulnerabilidades de severidad alta o superior.
 - No se detectaron secretos ni almacenamiento de tokens en `localStorage` o `sessionStorage`.
@@ -34,7 +35,7 @@
 - Flujo de inicio de sesión contra un usuario real de Supabase Auth; no se creó un usuario de prueba automáticamente.
 - API desplegado y `/me` conectado a PostgreSQL persistente; el código de arranque existe, pero todavía no se ejecutó contra un entorno de aplicación desplegado.
 - Navegadores reales, instalación PWA y comportamiento offline entre versiones.
-- Revisión visual automatizada con navegador instalado; el entorno actual no contiene un ejecutable Chromium.
+- Revisión visual automatizada con navegador instalado; el entorno local no contiene un ejecutable Chromium. La interfaz publicada sí fue inspeccionada manualmente en un navegador remoto y se verificó el flujo visual de inicio de sesión demo, registro de una serie y descanso.
 - Prueba end-to-end contra una instancia desplegada y un usuario de Supabase Auth real.
 - Restauración de backups, PITR, RPO y RTO.
 - Reglas F5 de entrenadores y consentimiento.

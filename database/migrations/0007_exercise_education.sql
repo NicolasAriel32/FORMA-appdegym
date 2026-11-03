@@ -1,4 +1,4 @@
--- FORMA: professionally reviewed educational content for official exercises.
+-- FORMA: structured professional educational content for official exercises.
 -- Content is catalog data, not user-generated workout data.
 
 alter table public.exercises
@@ -16,7 +16,7 @@ alter table public.exercises
     check (difficulty in ('beginner', 'intermediate', 'advanced'));
 
 comment on column public.exercises.instructions is
-  'Editorial movement instructions reviewed before publication.';
+  'Editorial movement instructions requiring review before publication.';
 comment on column public.exercises.common_mistakes is
   'Editorial list of frequent technique errors and corrective cues.';
 comment on column public.exercises.safety_notes is

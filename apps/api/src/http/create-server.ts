@@ -15,6 +15,7 @@ import {
 import { ExerciseCatalogService } from "../modules/catalog/service.js";
 import { RoutineService, RoutineValidationError } from "../modules/routines/service.js";
 import type { RoutineInput } from "../modules/routines/types.js";
+import { SyncService, SyncValidationError } from "../modules/sync/service.js";
 import type {
   ExternalPrincipal,
   InternalUser,
@@ -30,6 +31,7 @@ export type ApiDependencies = {
   resolvePrincipal: PrincipalResolver;
   exerciseCatalogService?: ExerciseCatalogService;
   routineService?: RoutineService;
+  syncService?: SyncService;
 };
 
 type PublicUser = Pick<InternalUser, "id" | "email" | "role" | "createdAt">;
@@ -39,6 +41,7 @@ export function createApiServer({
   resolvePrincipal,
   exerciseCatalogService,
   routineService,
+  syncService,
 }: ApiDependencies): Server {
   return createServer((request, response) => {
     void handleRequest(
@@ -48,6 +51,7 @@ export function createApiServer({
       resolvePrincipal,
       exerciseCatalogService,
       routineService,
+      syncService,
     ).catch(() => {
         if (!response.headersSent) {
           writeJson(response, 500, { error: "internal_error" });
@@ -65,6 +69,7 @@ async function handleRequest(
   resolvePrincipal: PrincipalResolver,
   exerciseCatalogService: ExerciseCatalogService | undefined,
   routineService: RoutineService | undefined,
+  syncService: SyncService | undefined,
 ): Promise<void> {
   const url = new URL(request.url ?? "/", "http://forma.local");
 
@@ -97,6 +102,45 @@ async function handleRequest(
 
   if (url.pathname === "/me") {
     writeJson(response, 200, toPublicUser(actor));
+    return;
+  }
+
+  if (url.pathname === "/sync/operations" && request.method === "POST") {
+    if (syncService === undefined) {
+      writeJson(response, 503, { error: "sync_unavailable" });
+      return;
+    }
+    const body = await readJsonBody(request, 128 * 1024);
+    if (body === undefined) {
+      writeJson(response, 400, { error: "invalid_sync_operation" });
+      return;
+    }
+    try {
+      writeJson(response, 200, await syncService.receive(actor.id, body));
+    } catch (error) {
+      if (error instanceof SyncValidationError) {
+        writeJson(response, 400, { error: "invalid_sync_operation" });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (url.pathname === "/sync/changes" && request.method === "GET") {
+    if (syncService === undefined) {
+      writeJson(response, 503, { error: "sync_unavailable" });
+      return;
+    }
+    try {
+      writeJson(response, 200, await syncService.listChanges(actor.id, url.searchParams.get("cursor"), url.searchParams.get("limit")));
+    } catch (error) {
+      if (error instanceof SyncValidationError) {
+        writeJson(response, 400, { error: "invalid_sync_cursor" });
+        return;
+      }
+      throw error;
+    }
     return;
   }
 
@@ -217,20 +261,25 @@ function writeJson(
 }
 
 async function readRoutineInput(request: IncomingMessage): Promise<RoutineInput | undefined> {
+  const value = await readJsonBody(request, 64 * 1024);
+  if (value === undefined) return undefined;
+  if (!isRecord(value) || typeof value.name !== "string" || typeof value.description !== "string" || !Array.isArray(value.exerciseIds) || value.exerciseIds.some((id) => typeof id !== "string")) {
+    return undefined;
+  }
+  return { name: value.name, description: value.description, exerciseIds: value.exerciseIds };
+}
+
+async function readJsonBody(request: IncomingMessage, maxBytes: number): Promise<unknown | undefined> {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
   for await (const chunk of request) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     totalBytes += buffer.byteLength;
-    if (totalBytes > 64 * 1024) return undefined;
+    if (totalBytes > maxBytes) return undefined;
     chunks.push(buffer);
   }
   try {
-    const value: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    if (!isRecord(value) || typeof value.name !== "string" || typeof value.description !== "string" || !Array.isArray(value.exerciseIds) || value.exerciseIds.some((id) => typeof id !== "string")) {
-      return undefined;
-    }
-    return { name: value.name, description: value.description, exerciseIds: value.exerciseIds };
+    return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
   } catch {
     return undefined;
   }

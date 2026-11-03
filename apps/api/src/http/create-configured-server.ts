@@ -7,6 +7,8 @@ import { createSupabasePrincipalResolver, type SupabaseAuthGateway } from "../mo
 import { IdentityService } from "../modules/identity/service.js";
 import { PostgresRoutineRepository } from "../modules/routines/postgres-repository.js";
 import { RoutineService } from "../modules/routines/service.js";
+import { PostgresSyncRepository } from "../modules/sync/postgres-repository.js";
+import { SyncService } from "../modules/sync/service.js";
 import type { TransactionalSqlClient } from "../platform/sql-client.js";
 import type { UserId } from "../modules/identity/types.js";
 
@@ -35,6 +37,9 @@ export function createConfiguredApiServer({
     ),
     routineService: new RoutineService(
       new PostgresRoutineRepository(sqlClient, randomUUID, now),
+    ),
+    syncService: new SyncService(
+      new PostgresSyncRepository(sqlClient, randomUUID, now),
     ),
   });
 }

@@ -5,6 +5,7 @@
 - TypeScript compila en modo estricto.
 - Las pruebas automatizadas pasan (cantidad exacta verificada por `npm test` en cada incremento).
 - La API rechaza solicitudes sin identidad y aísla perfiles personales.
+- El endpoint de catálogo requiere autenticación y devuelve solamente ejercicios publicados.
 - La identidad externa se convierte en una identidad interna estable.
 - Las consultas SQL del repositorio de identidad usan parámetros.
 - El núcleo de sesiones respeta propiedad, estados, ejercicios publicados y conflictos.
@@ -14,6 +15,7 @@
 - IndexedDB simulado confirma persistencia atómica de sesión y outbox.
 - El inicio offline conserva evidencia local no verificable y rechaza la reutilización incompatible de `operationId`.
 - La PWA compila; el manifest y el Service Worker fueron comprobados sintácticamente.
+- El Service Worker no cachea respuestas autenticadas ni rutas privadas del API.
 - La auditoría de npm no reportó vulnerabilidades de severidad alta o superior.
 - No se detectaron secretos ni almacenamiento de tokens en `localStorage` o `sessionStorage`.
 

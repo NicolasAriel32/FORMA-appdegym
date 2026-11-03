@@ -1,5 +1,6 @@
-const CACHE_NAME = "forma-shell-v1";
+const CACHE_NAME = "forma-shell-v2";
 const SHELL = ["/", "/manifest.webmanifest"];
+const PRIVATE_PATHS = new Set(["/me", "/profiles", "/exercises"]);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -21,7 +22,11 @@ self.addEventListener("fetch", (event) => {
   if (
     event.request.method !== "GET" ||
     url.origin !== self.location.origin ||
-    url.pathname.startsWith("/api/")
+    url.pathname.startsWith("/api/") ||
+    PRIVATE_PATHS.has(url.pathname) ||
+    url.pathname.startsWith("/profiles/") ||
+    event.request.headers.has("authorization") ||
+    event.request.headers.has("cookie")
   ) {
     return;
   }

@@ -12,6 +12,7 @@ import {
   assertCanReadPersonalResource,
   type PersonalResource,
 } from "../modules/authorization/service.js";
+import { ExerciseCatalogService } from "../modules/catalog/service.js";
 import type {
   ExternalPrincipal,
   InternalUser,
@@ -25,6 +26,7 @@ export type PrincipalResolver = (
 export type ApiDependencies = {
   identityService: IdentityService;
   resolvePrincipal: PrincipalResolver;
+  exerciseCatalogService?: ExerciseCatalogService;
 };
 
 type PublicUser = Pick<InternalUser, "id" | "email" | "role" | "createdAt">;
@@ -32,17 +34,22 @@ type PublicUser = Pick<InternalUser, "id" | "email" | "role" | "createdAt">;
 export function createApiServer({
   identityService,
   resolvePrincipal,
+  exerciseCatalogService,
 }: ApiDependencies): Server {
   return createServer((request, response) => {
-    void handleRequest(request, response, identityService, resolvePrincipal).catch(
-      () => {
+    void handleRequest(
+      request,
+      response,
+      identityService,
+      resolvePrincipal,
+      exerciseCatalogService,
+    ).catch(() => {
         if (!response.headersSent) {
           writeJson(response, 500, { error: "internal_error" });
         } else if (!response.writableEnded) {
           response.end();
         }
-      },
-    );
+      });
   });
 }
 
@@ -51,6 +58,7 @@ async function handleRequest(
   response: ServerResponse,
   identityService: IdentityService,
   resolvePrincipal: PrincipalResolver,
+  exerciseCatalogService: ExerciseCatalogService | undefined,
 ): Promise<void> {
   const url = new URL(request.url ?? "/", "http://forma.local");
 
@@ -83,6 +91,15 @@ async function handleRequest(
 
   if (url.pathname === "/me") {
     writeJson(response, 200, toPublicUser(actor));
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/exercises") {
+    if (exerciseCatalogService === undefined) {
+      writeJson(response, 503, { error: "catalog_unavailable" });
+      return;
+    }
+    writeJson(response, 200, { exercises: await exerciseCatalogService.listPublished() });
     return;
   }
 

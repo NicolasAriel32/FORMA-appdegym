@@ -4,7 +4,7 @@ Incrementos técnicos iniciales de FORMA: identidad interna, aislamiento de dato
 
 ## Estado
 
-Este repositorio contiene la base verificable de I1, el inicio de I2 y el primer comando offline de entrenamiento. Supabase está configurado como entorno de desarrollo, la PWA ya tiene una frontera de autenticación por correo/contraseña, el servidor tiene un resolvedor que valida bearer tokens mediante Supabase Auth y una sesión local puede persistirse junto con su outbox en una transacción atómica. El API todavía no está desplegado y no se creó ningún usuario de prueba.
+Este repositorio contiene la base verificable de I1, el inicio de I2, el primer comando offline de entrenamiento y un límite de catálogo oficial. Supabase está configurado como entorno de desarrollo, la PWA ya tiene una frontera de autenticación por correo/contraseña, el servidor valida bearer tokens mediante Supabase Auth, una sesión local puede persistirse junto con su outbox en una transacción atómica y el endpoint de ejercicios filtra los publicados. El API todavía no está desplegado y no se creó ningún usuario de prueba.
 
 El esquema inicial fue aplicado con RLS. Las instrucciones y variables están en `docs/supabase-development.md` y `.env.example`.
 
@@ -29,10 +29,11 @@ npm run build:web
 - La sesión web no se persiste ni se renueva automáticamente: esto evita convertir almacenamiento de credenciales en una decisión offline implícita.
 - Todavía no se habilitó el desbloqueo offline de la identidad.
 - El comando offline de iniciar sesión existe como servicio probado, pero todavía no está expuesto en la interfaz funcional.
+- El catálogo oficial tiene endpoint de lectura, pero todavía no hay carga administrativa ni edición de rutinas.
 - No ejecuta sincronización contra una API remota.
 - No implementa consentimiento ni consulta de sesiones por entrenadores.
 - No contiene credenciales ni servicios de aplicación desplegados.
 
 ## Próximo paso
 
-Cargar el catálogo oficial publicado online y exponerlo mediante el API, manteniendo el cliente `/me`, las políticas RLS y el aislamiento verificados en I1.
+Implementar la lectura del catálogo en la PWA y la edición estructural online de rutinas, manteniendo el cliente `/me`, las políticas RLS y el aislamiento verificados en I1.

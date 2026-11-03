@@ -1,4 +1,4 @@
-import type { ExternalPrincipal, InternalUser, UserId } from "./types.js";
+import type { InternalUser, UserId } from "./types.js";
 
 export interface IdentityRepository {
   findByExternalIdentity(

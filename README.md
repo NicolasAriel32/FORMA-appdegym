@@ -31,4 +31,4 @@ npm run build
 
 ## Próximo paso
 
-Conectar el adaptador de identidad a un proveedor administrado aprobado y exponer la primera API autenticada sin modificar las reglas de aislamiento.
+Conectar el adaptador de resolución de identidad a un proveedor administrado aprobado, conservando el límite de la API y las reglas de aislamiento verificadas en I1.

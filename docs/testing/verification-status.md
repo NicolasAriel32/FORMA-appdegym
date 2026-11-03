@@ -16,6 +16,7 @@
 - El inicio offline conserva evidencia local no verificable y rechaza la reutilización incompatible de `operationId`.
 - La PWA compila; el manifest y el Service Worker fueron comprobados sintácticamente.
 - El Service Worker no cachea respuestas autenticadas ni rutas privadas del API.
+- La interfaz navegable compila con Inicio, Rutinas, Entrenar, Progreso, Ejercicios y Perfil; sus datos están marcados como demostración.
 - La auditoría de npm no reportó vulnerabilidades de severidad alta o superior.
 - No se detectaron secretos ni almacenamiento de tokens en `localStorage` o `sessionStorage`.
 
@@ -24,6 +25,7 @@
 - Flujo de inicio de sesión contra un usuario real de Supabase Auth; no se creó un usuario de prueba automáticamente.
 - API desplegado y `/me` conectado a PostgreSQL persistente.
 - Navegadores reales, instalación PWA y comportamiento offline entre versiones.
+- Revisión visual automatizada con navegador instalado; el entorno actual no contiene un ejecutable Chromium.
 - API remota de sincronización.
 - Restauración de backups, PITR, RPO y RTO.
 - Reglas F5 de entrenadores y consentimiento.

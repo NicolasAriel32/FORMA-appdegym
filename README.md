@@ -6,6 +6,8 @@ Incrementos técnicos iniciales de FORMA: identidad interna, aislamiento de dato
 
 Este repositorio contiene la base verificable de I1, el inicio de I2, el primer comando offline de entrenamiento y un límite de catálogo oficial. Supabase está configurado como entorno de desarrollo, la PWA ya tiene una frontera de autenticación por correo/contraseña, el servidor valida bearer tokens mediante Supabase Auth, una sesión local puede persistirse junto con su outbox en una transacción atómica y el endpoint de ejercicios filtra los publicados. El API todavía no está desplegado y no se creó ningún usuario de prueba.
 
+La primera interfaz navegable ya está disponible con dirección visual mobile-first inspirada en Symmetry: fondo oscuro, tarjetas de entrenamiento, navegación inferior y vistas de Inicio, Rutinas, Entrenar, Progreso, Ejercicios y Perfil. Sus métricas y rutinas son datos de demostración y están marcadas como diseño, no como información real persistida.
+
 El esquema inicial fue aplicado con RLS. Las instrucciones y variables están en `docs/supabase-development.md` y `.env.example`.
 
 El código separa la identidad externa administrada de la identidad interna estable de FORMA. La autorización es denegada por defecto para datos personales de terceros, incluidos los datos de miembros que puedan pertenecer a un entrenador.

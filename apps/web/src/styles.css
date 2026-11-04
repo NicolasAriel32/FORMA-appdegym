@@ -213,6 +213,7 @@ h3 { margin-bottom: 4px; color: #fff; font-size: 1.02rem; }
 .squat-media-frame { position: relative; z-index: 2; display: grid; width: min(100%, 330px); height: 100%; place-items: center; animation: media-frame-in .26s ease both; }
 .squat-media-image { display: block; width: min(100%, 310px); height: min(100%, 226px); max-height: 100%; object-fit: contain; filter: drop-shadow(0 16px 20px rgba(105,87,215,.28)); }
 .squat-muscle-frame .squat-media-image { animation: muscle-float 3.2s ease-in-out infinite; }
+.squat-technical-frame .squat-media-image { animation: technical-float 3.6s ease-in-out infinite; filter: drop-shadow(0 16px 20px rgba(255,167,112,.2)); }
 .figure-blue { color: #d7e8ff; filter: drop-shadow(0 14px 20px rgba(72,132,224,.28)); }
 .figure-green { color: #d3f5e7; filter: drop-shadow(0 14px 20px rgba(47,151,112,.26)); }
 .figure-orange { color: #ffe3cc; filter: drop-shadow(0 14px 20px rgba(203,112,49,.26)); }
@@ -249,6 +250,8 @@ h3 { margin-bottom: 4px; color: #fff; font-size: 1.02rem; }
 @keyframes motion-breathe { 0%, 100% { transform: translateY(1px) scale(1); } 50% { transform: translateY(-3px) scale(1.015); } }
 @keyframes media-frame-in { from { opacity: .35; transform: translateY(5px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes muscle-float { 0%, 100% { transform: translateY(1px); } 50% { transform: translateY(-3px); } }
+@keyframes technical-float { 0%, 100% { transform: translateY(1px); } 50% { transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .squat-media-frame, .squat-media-image, .motion-figure { animation: none !important; } }
 .exercise-visual-blue { background: linear-gradient(135deg, rgba(72,132,224,.28), rgba(27,43,76,.3)); }
 .exercise-visual-green { background: linear-gradient(135deg, rgba(47,151,112,.25), rgba(22,53,48,.3)); }
 .exercise-visual-orange { background: linear-gradient(135deg, rgba(203,112,49,.28), rgba(69,39,29,.3)); }

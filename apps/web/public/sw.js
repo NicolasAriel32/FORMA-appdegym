@@ -1,4 +1,4 @@
-const CACHE_NAME = "forma-shell-v4";
+const CACHE_NAME = "forma-shell-v5";
 const SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -6,6 +6,13 @@ const SHELL = [
   "/media/exercises/squat-descent.webp",
   "/media/exercises/squat-return.webp",
   "/media/exercises/squat-muscles.webp",
+  "/media/exercises/squat-back-barbell/animation-start.webp",
+  "/media/exercises/squat-back-barbell/animation-descent.webp",
+  "/media/exercises/squat-back-barbell/animation-return.webp",
+  "/media/exercises/squat-back-barbell/muscles.webp",
+  "/media/exercises/squat-back-barbell/angles.webp",
+  "/media/exercises/squat-back-barbell/poster.webp",
+  "/media/exercises/squat-back-barbell/metadata.json",
 ];
 const PRIVATE_PATHS = new Set(["/me", "/profiles", "/exercises"]);
 

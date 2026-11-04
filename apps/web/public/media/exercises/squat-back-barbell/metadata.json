@@ -1,0 +1,17 @@
+{
+  "exerciseId": "squat-back-barbell",
+  "name": "Sentadilla trasera con barra",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": ["start", "descent", "return"],
+  "targetMuscles": ["Cuádriceps", "Glúteo mayor"],
+  "secondaryMuscles": ["Aductores", "Isquiosurales", "Erectores espinales"],
+  "equipment": ["Barra", "Discos", "Rack"],
+  "camera": "three-quarter side",
+  "resolution": "WebP responsive source renders",
+  "durationSeconds": 3.3,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Piloto visual generado para validar la UI y el pipeline. Requiere fuente .blend, animación interpolada y revisión profesional antes de publicarse como material educativo definitivo."
+}

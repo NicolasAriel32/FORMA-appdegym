@@ -90,7 +90,7 @@ h3 { margin-bottom: 4px; color: #fff; font-size: 1.02rem; }
 .compact-empty { padding: 28px 20px; }
 .compact-empty .eyebrow { margin-top: 0; }
 .finish-button { width: 100%; margin-top: 12px; }
-.routine-editor, .exercise-details { width: min(100%, 520px); max-height: 100%; overflow-y: auto; padding: 26px 22px calc(28px + env(safe-area-inset-bottom)); border-left: 1px solid rgba(255,255,255,.09); background: #12141e; box-shadow: -15px 0 55px rgba(0,0,0,.3); }
+.routine-editor { width: min(100%, 520px); max-height: 100%; overflow-y: auto; padding: 26px 22px calc(28px + env(safe-area-inset-bottom)); border-left: 1px solid rgba(255,255,255,.09); background: #12141e; box-shadow: -15px 0 55px rgba(0,0,0,.3); }
 .routine-editor label { display: grid; gap: 7px; margin-bottom: 15px; color: #a3a7b6; font-size: .72rem; font-weight: 800; }
 .routine-editor input, .routine-editor textarea { width: 100%; border: 1px solid rgba(255,255,255,.12); border-radius: 11px; outline: 0; color: #fff; background: rgba(255,255,255,.06); font-size: .8rem; }
 .routine-editor input { min-height: 43px; padding: 0 12px; }
@@ -106,7 +106,63 @@ h3 { margin-bottom: 4px; color: #fff; font-size: 1.02rem; }
 .exercise-picker-row span { display: grid; gap: 3px; }
 .exercise-picker-row strong { color: #f0f0f6; font-size: .74rem; }
 .exercise-picker-row small { color: #858b9e; font-size: .63rem; font-weight: 500; }
-.exercise-details { width: min(100%, 560px); }
+html:has(.exercise-details[open]) { overflow: hidden; }
+.exercise-details {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(100%, 560px);
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0 clamp(12px, 4vw, 24px) calc(24px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 0;
+  color: inherit;
+  background: #12141e;
+}
+.exercise-details::backdrop { background: rgba(0, 0, 0, .65); }
+.exercise-details-header {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: calc(12px + env(safe-area-inset-top)) 0 12px;
+  background: #12141e;
+}
+.exercise-details-header h2 { margin: 0; font-size: clamp(1.15rem, 5vw, 1.7rem); overflow-wrap: anywhere; }
+.exercise-details-header .close-button { flex: 0 0 44px; height: 44px; border-radius: 12px; background: #242337; }
+.squat-preview { display: grid; gap: 10px; margin-bottom: 16px; }
+.exercise-detail-kicker { margin: 0; color: #c8c1f9; font-size: .67rem; font-weight: 800; letter-spacing: .1em; }
+.squat-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.squat-phases { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.squat-controls button {
+  min-height: 44px;
+  padding: 4px;
+  border: 1px solid #39364e;
+  border-radius: 9px;
+  color: #c8c4d9;
+  background: #1a1b2a;
+  font-size: .8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.squat-controls button[aria-pressed="true"] { border-color: #9682e8; color: #fff; background: #36305a; }
+.squat-model {
+  display: block;
+  width: 100%;
+  height: clamp(145px, 50vw, 230px);
+  height: clamp(125px, min(50vw, 34dvh), 230px);
+  border: 1px solid #3d3558;
+  border-radius: 16px;
+  background: radial-gradient(ellipse at center, #302646, #171725 75%);
+}
+.squat-cue { margin: 0; color: #d4cfe7; font-size: .85rem; line-height: 1.45; }
+.squat-play, .workout-technique { min-height: 44px; }
+.workout-technique { width: 100%; margin-bottom: 12px; }
 .detail-lead { margin: -14px 0 24px; color: #b2a9ed; font-size: .72rem; font-weight: 800; }
 .detail-section { padding: 15px 0; border-top: 1px solid rgba(255,255,255,.07); }
 .detail-section p:not(.eyebrow), .detail-section li { color: #b2b5c2; font-size: .78rem; line-height: 1.6; }
@@ -191,67 +247,6 @@ h3 { margin-bottom: 4px; color: #fff; font-size: 1.02rem; }
 .rest-card strong { color: #f2efff; font-size: 1.45rem; letter-spacing: -.05em; }
 .rest-card small { color: #858a9e; font-size: .6rem; }
 .rest-toggle { min-height: 35px; padding: 0 13px; border: 1px solid rgba(180,166,255,.26); border-radius: 10px; color: #d7d0ff; background: rgba(128,108,234,.15); font-size: .67rem; font-weight: 900; cursor: pointer; }
-.exercise-detail-visual { display: grid; min-height: 178px; align-content: center; justify-items: center; gap: 10px; margin: -26px -22px 22px; overflow: hidden; border-bottom: 1px solid rgba(255,255,255,.1); background: linear-gradient(135deg, rgba(137,117,246,.24), rgba(27,31,55,.3)); }
-.exercise-detail-visual > * { position: relative; z-index: 1; }
-.exercise-detail-visual::before, .exercise-detail-visual::after { position: absolute; border: 1px solid rgba(224,218,255,.18); border-radius: 50%; content: ""; }
-.exercise-detail-visual::before { width: 260px; height: 260px; transform: rotate(27deg) scaleX(.58); }
-.exercise-detail-visual::after { width: 180px; height: 180px; transform: rotate(-28deg) scaleX(.58); }
-.exercise-detail-kicker { color: #c8c1f9; font-size: .58rem; font-weight: 900; letter-spacing: .17em; }
-.exercise-media-panel { margin: -26px -22px 22px; padding: 17px 17px 14px; border-bottom: 1px solid rgba(255,255,255,.1); background: linear-gradient(145deg, rgba(137,117,246,.22), rgba(27,31,55,.34)); }
-.media-blue { background: linear-gradient(145deg, rgba(72,132,224,.24), rgba(27,43,76,.36)); }
-.media-green { background: linear-gradient(145deg, rgba(47,151,112,.22), rgba(22,53,48,.36)); }
-.media-orange { background: linear-gradient(145deg, rgba(203,112,49,.24), rgba(69,39,29,.38)); }
-.exercise-media-topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.media-status { display: inline-flex; align-items: center; gap: 5px; color: #9fe2c3; font-size: .57rem; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
-.media-status-dot { width: 6px; height: 6px; border-radius: 50%; background: #7bd1ac; box-shadow: 0 0 10px rgba(123,209,172,.7); }
-.exercise-motion-stage { position: relative; display: grid; width: 100%; height: clamp(172px, 48vw, 244px); margin-top: 12px; place-items: center; overflow: hidden; border: 1px solid rgba(255,255,255,.13); border-radius: 20px; background: radial-gradient(circle at 50% 43%, rgba(255,255,255,.1), rgba(255,255,255,.025) 40%, rgba(0,0,0,.16) 100%); }
-.motion-grid { position: absolute; width: 150px; height: 150px; border: 1px solid rgba(230,225,255,.16); border-radius: 50%; transform: scaleX(.66); }
-.motion-grid-one { width: 220px; height: 220px; opacity: .55; }
-.motion-grid-two { width: 125px; height: 125px; opacity: .45; }
-.motion-axis { position: absolute; width: 1px; height: 166px; background: linear-gradient(transparent, rgba(224,218,255,.24), transparent); }
-.motion-figure { position: relative; z-index: 2; width: 190px; height: 160px; color: #e8e3ff; filter: drop-shadow(0 14px 20px rgba(117,98,235,.3)); animation: motion-breathe 2.8s ease-in-out infinite; }
-.squat-media-frame { position: relative; z-index: 2; display: grid; width: min(100%, 330px); height: 100%; place-items: center; animation: media-frame-in .26s ease both; }
-.squat-media-image { display: block; width: min(100%, 310px); height: min(100%, 226px); max-height: 100%; object-fit: contain; filter: drop-shadow(0 16px 20px rgba(105,87,215,.28)); }
-.squat-muscle-frame .squat-media-image { animation: muscle-float 3.2s ease-in-out infinite; }
-.squat-technical-frame .squat-media-image { animation: technical-float 3.6s ease-in-out infinite; filter: drop-shadow(0 16px 20px rgba(255,167,112,.2)); }
-.figure-blue { color: #d7e8ff; filter: drop-shadow(0 14px 20px rgba(72,132,224,.28)); }
-.figure-green { color: #d3f5e7; filter: drop-shadow(0 14px 20px rgba(47,151,112,.26)); }
-.figure-orange { color: #ffe3cc; filter: drop-shadow(0 14px 20px rgba(203,112,49,.26)); }
-.motion-muscle-label { position: absolute; right: 12px; bottom: 12px; z-index: 3; max-width: 43%; padding: 6px 8px; border: 1px solid rgba(214,206,255,.18); border-radius: 8px; color: #d8d1ff; background: rgba(26,24,48,.68); font-size: .57rem; font-weight: 900; text-align: right; }
-.motion-badge { position: absolute; left: 12px; bottom: 12px; z-index: 3; padding: 6px 8px; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; color: rgba(255,255,255,.55); background: rgba(255,255,255,.06); font-size: .53rem; font-weight: 900; letter-spacing: .12em; }
-.exercise-media-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 11px; padding: 4px; border-radius: 11px; background: rgba(0,0,0,.16); }
-.exercise-media-tabs button { min-height: 31px; border-radius: 8px; color: #9d9aaf; background: transparent; font-size: .62rem; font-weight: 900; cursor: pointer; }
-.exercise-media-tabs button.is-active { color: #f2efff; background: rgba(255,255,255,.12); box-shadow: 0 2px 8px rgba(0,0,0,.12); }
-.media-caption { margin: 10px 2px 0; color: rgba(222,218,239,.56); font-size: .59rem; line-height: 1.4; }
-.motion-phase-row { display: flex; align-items: center; gap: 5px; margin-top: 10px; padding: 4px; border: 1px solid rgba(255,255,255,.08); border-radius: 11px; background: rgba(0,0,0,.13); }
-.motion-phase-row > span { margin: 0 4px 0 6px; color: #89859e; font-size: .52rem; font-weight: 900; letter-spacing: .12em; }
-.motion-phase-row button { min-height: 28px; padding: 0 8px; border-radius: 7px; color: #9d9aaf; background: transparent; font-size: .59rem; font-weight: 900; cursor: pointer; }
-.motion-phase-row button.is-active { color: #f2efff; background: rgba(255,255,255,.12); }
-.motion-play-toggle { margin-left: auto; border: 1px solid rgba(167,148,255,.24); color: #c8bfff !important; background: rgba(123,103,237,.13) !important; }
-.squat-figure { position: relative; z-index: 2; width: 230px; height: 190px; overflow: visible; color: #ebe7ff; filter: drop-shadow(0 15px 18px rgba(111,92,225,.3)); }
-.squat-rack, .squat-floor { fill: none; stroke: rgba(238,233,255,.28); stroke-linecap: round; stroke-width: 2; }
-.squat-floor { stroke: rgba(238,233,255,.42); stroke-width: 3; }
-.squat-bar { fill: none; stroke: #d5d0f7; stroke-linecap: round; stroke-width: 4; }
-.squat-bar circle { fill: #f4b378; stroke: none; }
-.squat-body { transform-origin: 104px 88px; transition: transform .35s ease; }
-.squat-start .squat-body, .squat-return .squat-body, .squat-bottom .squat-body { transform: none; }
-.squat-head { fill: url(#squat-skin); }
-.squat-torso, .squat-hip { fill: url(#squat-skin); stroke: rgba(255,255,255,.18); stroke-width: 1; }
-.squat-arm, .squat-leg, .squat-foot { fill: none; stroke: url(#squat-skin); stroke-linecap: round; stroke-linejoin: round; stroke-width: 8; }
-.squat-foot { stroke-width: 5; }
-.squat-view-muscles .squat-body { filter: drop-shadow(0 0 7px rgba(255,139,103,.5)); }
-.squat-muscle-map ellipse { fill: url(#squat-highlight); opacity: .92; }
-.squat-muscle-map path, .squat-angle-map path { fill: none; stroke: #ffb978; stroke-dasharray: 3 4; stroke-linecap: round; stroke-width: 1.5; }
-.squat-muscle-map text, .squat-angle-map text { fill: #ffd2a5; font-family: inherit; font-size: 6px; font-weight: 900; letter-spacing: .08em; }
-.squat-angle-map path { stroke: #b8adff; }
-.squat-angle-map text { fill: #d0c8ff; font-size: 6px; letter-spacing: 0; }
-.squat-view-angles .squat-body { opacity: .7; }
-.squat-view-angles .squat-bar { opacity: .8; }
-@keyframes motion-breathe { 0%, 100% { transform: translateY(1px) scale(1); } 50% { transform: translateY(-3px) scale(1.015); } }
-@keyframes media-frame-in { from { opacity: .35; transform: translateY(5px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes muscle-float { 0%, 100% { transform: translateY(1px); } 50% { transform: translateY(-3px); } }
-@keyframes technical-float { 0%, 100% { transform: translateY(1px); } 50% { transform: translateY(-2px); } }
-@media (prefers-reduced-motion: reduce) { .squat-media-frame, .squat-media-image, .motion-figure { animation: none !important; } }
 .exercise-visual-blue { background: linear-gradient(135deg, rgba(72,132,224,.28), rgba(27,43,76,.3)); }
 .exercise-visual-green { background: linear-gradient(135deg, rgba(47,151,112,.25), rgba(22,53,48,.3)); }
 .exercise-visual-orange { background: linear-gradient(135deg, rgba(203,112,49,.28), rgba(69,39,29,.3)); }
@@ -279,4 +274,4 @@ h3 { margin-bottom: 4px; color: #fff; font-size: 1.02rem; }
 .set-entry input:focus { border-color: #a193ff; box-shadow: 0 0 0 3px rgba(151, 133, 253, .12); }
 .set-save-button { grid-column: 1 / -1; min-height: 38px; margin-top: 1px; font-size: .69rem; }
 .exercise-log-card > .form-error { margin: -3px 0 12px; }
-@media (max-width: 390px) { .set-entry { grid-template-columns: 1fr 1fr; } .last-performance { align-items: flex-start; flex-wrap: wrap; } .last-performance small { width: 100%; margin-left: 0; } .exercise-media-panel { padding: 14px 12px 12px; } .exercise-motion-stage { height: clamp(160px, 55vw, 210px); border-radius: 17px; } .squat-media-frame { width: 100%; } .squat-media-image { width: 100%; height: 100%; } .motion-phase-row { gap: 3px; } .motion-phase-row > span { margin-left: 3px; margin-right: 2px; } .motion-phase-row button { flex: 1; padding: 0 5px; } .motion-play-toggle { flex: 0 0 auto !important; padding: 0 7px !important; } }
+@media (max-width: 390px) { .set-entry { grid-template-columns: 1fr 1fr; } .last-performance { align-items: flex-start; flex-wrap: wrap; } .last-performance small { width: 100%; margin-left: 0; } }

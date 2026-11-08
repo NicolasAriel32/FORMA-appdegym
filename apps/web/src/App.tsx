@@ -56,6 +56,7 @@ function demonstrationFor(exercise: Pick<ExerciseCard, "id" | "name">): Demonstr
   const name = exercise.name.trim().toLocaleLowerCase("es");
   if (exercise.id === "demo-squat" || name === "sentadilla trasera con barra" || name === "sentadilla con barra") return "squat";
   if (exercise.id === "demo-bench" || /^press (?:de |en )?banca(?: plano)?(?: con barra)?$/.test(name)) return "bench";
+  if (exercise.id === "demo-rdl" || /^peso muerto rumano(?: con barra)?$/.test(name)) return "deadlift";
 }
 
 type RoutineAccent = "violet" | "blue" | "green" | "orange";
@@ -584,6 +585,7 @@ function WorkoutTechnique({ education, onOpen }: { education: ExerciseEducation;
 function ExerciseDetails({ exercise, onClose }: { exercise: ExerciseCard; onClose: () => void }): ReactElement {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const info = exercise.education;
+  const demonstration = demonstrationFor(exercise);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -604,10 +606,10 @@ function ExerciseDetails({ exercise, onClose }: { exercise: ExerciseCard; onClos
       <div><p className="eyebrow">{info.difficulty} · {info.equipment}</p><h2 id="exercise-detail-title">{exercise.name}</h2></div>
       <button className="close-button" type="button" onClick={onClose} aria-label="Cerrar ficha">×</button>
     </header>
-    {demonstrationFor(exercise) === "squat" && <SquatPreview />}
-    {demonstrationFor(exercise) === "bench" && <section className="squat-preview" aria-label="Demostración de press de banca plano">
+    {demonstration === "squat" && <SquatPreview />}
+    {demonstration && demonstration !== "squat" && <section className="squat-preview" aria-label={`Demostración de ${exercise.name.toLocaleLowerCase("es")}`}>
       <p className="exercise-detail-kicker">DEMOSTRACIÓN · MODELO PILOTO</p>
-      <ExerciseRepetition demonstration="bench" />
+      <ExerciseRepetition demonstration={demonstration} />
     </section>}
     <DetailSection title="Ejecución técnica"><p>{info.instructions}</p></DetailSection>
     <DetailSection title="Músculos principales"><div className="tag-list">{info.targetMuscles.map((item) => <span key={item}>{item}</span>)}</div></DetailSection>

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ReactElement, RefObject } from "react";
 
-export type Demonstration = "squat" | "bench";
+export type Demonstration = "squat" | "bench" | "deadlift";
 
 const media = {
   squat: {
@@ -13,6 +13,12 @@ const media = {
   bench: {
     folder: "/media/exercises/bench-press-barbell",
     label: "Press de banca plano con barra en vista de tres cuartos",
+    duration: 4.2,
+    equipment: "Carga de referencia · 2 discos de 20 kg por lado",
+  },
+  deadlift: {
+    folder: "/media/exercises/romanian-deadlift-barbell",
+    label: "Peso muerto rumano con barra en vista de tres cuartos",
     duration: 4.2,
     equipment: "Carga de referencia · 2 discos de 20 kg por lado",
   },
@@ -47,7 +53,7 @@ export function ExerciseRepetition({ demonstration = "squat", videoRef, compact 
   />;
   return <div className={compact ? "workout-squat-media" : undefined}>
     <div className="exercise-repetition-frame">{video}
-    {(compact || demonstration === "bench") && <button className="squat-inline-play" type="button" onClick={() => {
+    {(compact || demonstration !== "squat") && <button className="squat-inline-play" type="button" onClick={() => {
       const element = player.current;
       if (!element) return;
       if (element.paused) void element.play().catch(() => setPlaying(false));

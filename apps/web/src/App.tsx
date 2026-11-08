@@ -61,7 +61,11 @@ function demonstrationFor(exercise: Pick<ExerciseCard, "id" | "name">): Demonstr
 }
 
 type RoutineAccent = "violet" | "blue" | "green" | "orange";
+type DemoPlan = { id: string; name: string; description: string; exerciseIds: string[] };
+const demoPlanKey = "forma.demo-plans.v1";
+
 type RoutineSummary = {
+  demoPlan?: DemoPlan;
   api: ApiRoutine | null;
   name: string;
   detail: string;
@@ -100,6 +104,18 @@ const demoWorkoutExercises: WorkoutExercise[] = [
   { id: "demo-row", name: "Remo con barra", muscle: "Espalda · Bíceps", color: "green" },
 ];
 
+function readDemoPlans(): DemoPlan[] {
+  const value: unknown = JSON.parse(localStorage.getItem(demoPlanKey) ?? "[]");
+  if (!Array.isArray(value)) return [];
+  return value.filter((plan): plan is DemoPlan =>
+    plan !== null && typeof plan === "object" &&
+    typeof plan.id === "string" && typeof plan.name === "string" &&
+    typeof plan.description === "string" && Array.isArray(plan.exerciseIds) &&
+    plan.exerciseIds.length > 0 &&
+    plan.exerciseIds.every((id: unknown) => demoWorkoutExercises.some((exercise) => exercise.id === id)) &&
+    new Set(plan.exerciseIds).size === plan.exerciseIds.length);
+}
+
 export default function App(): ReactElement {
   const [online, setOnline] = useState(() => navigator.onLine);
   const [activeTab, setActiveTab] = useState<AppTab>("home");
@@ -134,6 +150,11 @@ export default function App(): ReactElement {
   const [routines, setRoutines] = useState<ApiRoutine[] | null>(null);
   const [routinesLoading, setRoutinesLoading] = useState(false);
   const [routineMessage, setRoutineMessage] = useState<string | null>(null);
+  const [demoPlans, setDemoPlans] = useState<DemoPlan[]>(() => {
+    try { return readDemoPlans(); } catch { return []; }
+  });
+  const [demoEditor, setDemoEditor] = useState(false);
+  const [editingDemoPlan, setEditingDemoPlan] = useState<DemoPlan | null>(null);
   const [routineEditorOpen, setRoutineEditorOpen] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState<ApiRoutine | null>(null);
   const [routineSaving, setRoutineSaving] = useState(false);
@@ -235,19 +256,23 @@ export default function App(): ReactElement {
 
   async function startWorkout(routine: RoutineSummary | null = null): Promise<void> {
     setActiveTab("train"); setWorkoutMessage(null);
+    if (activeWorkout !== null || demoSessionStarted) {
+      setWorkoutMessage("Terminá la sesión activa para empezar otro plan.");
+      return;
+    }
     const plannedExercises = buildWorkoutExercises(routine, catalogExercises);
     if (routine?.api !== null && routine?.api !== undefined && plannedExercises.length === 0) {
       setWorkoutMessage("No se pudo cargar la estructura oficial de esta rutina.");
       return;
     }
-    if (realWorkoutEnabled && (catalogExercises === null || plannedExercises.length === 0)) {
+    if (!routine?.demoPlan && realWorkoutEnabled && (catalogExercises === null || plannedExercises.length === 0)) {
       setWorkoutMessage("Esperá a que cargue el catálogo oficial para iniciar esta sesión.");
       return;
     }
     setWorkoutExercises(plannedExercises.length > 0 ? plannedExercises : demoWorkoutExercises);
     setCurrentExerciseIndex(0);
     setWorkoutName(routine?.name ?? demoRoutines[0]!.name);
-    if (!realWorkoutEnabled || serverUser === null || localDatabase === null || clientInstanceId === null) { setDemoSessionStarted(true); return; }
+    if (routine?.demoPlan || !realWorkoutEnabled || serverUser === null || localDatabase === null || clientInstanceId === null) { setDemoSetsByExercise({}); setDemoSessionStarted(true); return; }
     try {
       const timestamp = new Date().toISOString();
       const result = await startOfflineWorkoutSession({ database: localDatabase, ownerId: serverUser.id as UserId, sessionId: crypto.randomUUID() as SessionId, operationId: crypto.randomUUID(), clientInstanceId, createdAt: timestamp, startedAt: timestamp });
@@ -307,8 +332,29 @@ export default function App(): ReactElement {
     setWorkoutMessage(null);
   }
 
-  function openRoutineEditor(routine: ApiRoutine | null = null): void { setEditingRoutine(routine); setRoutineMessage(null); setRoutineEditorOpen(true); }
+  function openRoutineEditor(routine: ApiRoutine | null = null, demoPlan: DemoPlan | null = null): void {
+    setDemoEditor(demoPlan !== null || (routine === null && (session === null || apiBaseUrl === undefined)));
+    setEditingDemoPlan(demoPlan);
+    setEditingRoutine(routine);
+    setRoutineMessage(null);
+    setRoutineEditorOpen(true);
+  }
   async function saveRoutine(name: string, description: string, exerciseIds: string[]): Promise<void> {
+    if (demoEditor) {
+      if (!name.trim() || exerciseIds.length === 0) return;
+      try {
+        const saved = { id: editingDemoPlan?.id ?? crypto.randomUUID(), name: name.trim(), description: description.trim(), exerciseIds };
+        const current = readDemoPlans();
+        const next = editingDemoPlan === null ? [...current, saved] : current.map((plan) => plan.id === saved.id ? saved : plan);
+        localStorage.setItem(demoPlanKey, JSON.stringify(next));
+        setDemoPlans(next);
+        setRoutineEditorOpen(false);
+        setActiveTab("routines");
+      } catch {
+        setRoutineMessage("No se pudo guardar el plan en este navegador.");
+      }
+      return;
+    }
     if (session === null || apiBaseUrl === undefined || !online) { setRoutineMessage("La edición estructural de rutinas requiere conexión y una sesión online."); return; }
     setRoutineSaving(true); setRoutineMessage(null);
     try {
@@ -330,7 +376,7 @@ export default function App(): ReactElement {
     : demoSetsByExercise[currentWorkoutExercise.id] ?? [];
   const completedSets = activeWorkout?.sets.length
     ?? Object.values(demoSetsByExercise).reduce((total, sets) => total + sets.length, 0);
-  return <div className="app-shell"><div className="ambient ambient-one" aria-hidden="true" /><div className="ambient ambient-two" aria-hidden="true" /><header className="topbar"><div className="brand-mark" aria-label="FORMA"><span className="brand-symbol">F</span><span>FORMA</span></div><div className="topbar-actions"><span className={`sync-pill ${online ? "is-online" : "is-offline"}`}><span className="sync-dot" aria-hidden="true" />{online ? "Online" : "Offline"}</span><button className="profile-button" type="button" aria-label="Abrir perfil" onClick={() => setProfileOpen(true)}>{session?.user.email?.slice(0, 1).toUpperCase() ?? "N"}</button></div></header><main className="app-content">{recoveryOperations.length > 0 ? <SyncRecoveryBanner count={recoveryOperations.length} onOpen={() => setRecoveryOpen(true)} /> : null}{activeTab === "home" ? <HomeView onStart={() => void startWorkout({ api: null, ...demoRoutines[0]! })} onCreate={() => openRoutineEditor()} onOpenRoutine={openRoutine} /> : null}{activeTab === "routines" ? <RoutinesView routines={routines} loading={routinesLoading} message={routineMessage} catalogExercises={catalogExercises ?? []} onCreate={() => openRoutineEditor()} onEdit={openRoutineEditor} onOpenRoutine={openRoutine} /> : null}{activeTab === "train" ? <TrainView key={activeWorkout?.id ?? (demoSessionStarted ? "demo-activa" : "sin-sesion")} started={demoSessionStarted || activeWorkout !== null} activeSession={activeWorkout} workoutName={workoutName} currentExercise={currentWorkoutExercise} exerciseDetails={workoutExerciseDetails} nextExercise={workoutExercises[currentExerciseIndex + 1] ?? null} currentExerciseIndex={currentExerciseIndex} totalExercises={workoutExercises.length} exerciseSets={exerciseSets} completedSets={completedSets} message={workoutMessage} onStart={() => void startWorkout()} onCompleteSet={completeSet} onNextExercise={goToNextExercise} onFinish={() => void finishWorkout()} /> : null}{activeTab === "progress" ? <ProgressView sessions={localSessions} /> : null}{activeTab === "exercises" ? <ExercisesView query={exerciseQuery} onQueryChange={setExerciseQuery} exercises={filteredExercises} loading={catalogLoading} message={catalogMessage} source={catalogExercises === null ? "demo" : "api"} /> : null}</main><nav className="bottom-nav" aria-label="Navegación principal">{tabs.map((tab) => <button className={`nav-item ${activeTab === tab.id ? "is-active" : ""} ${tab.id === "train" ? "train-nav-item" : ""}`} type="button" key={tab.id} onClick={() => setActiveTab(tab.id)}><span className={tab.id === "train" ? "train-nav-icon" : "nav-icon"}><Icon name={tab.icon} size={tab.id === "train" ? 21 : 19} /></span><span>{tab.label}</span></button>)}</nav>{profileOpen ? <ProfileDrawer session={session} serverUser={serverUser} authLoading={authLoading} authBusy={authBusy} authMessage={authMessage} serverIdentityLoading={serverIdentityLoading} serverIdentityMessage={serverIdentityMessage} email={email} password={password} supabaseConfigured={supabase !== null} onClose={() => setProfileOpen(false)} onSubmit={(event) => void handleSubmit(event)} onEmailChange={setEmail} onPasswordChange={setPassword} onSignOut={() => void handleSignOut()} /> : null}{selectedRoutine ? <RoutineDetail routine={selectedRoutine} catalogExercises={catalogExercises ?? []} onClose={() => setSelectedRoutine(null)} onStart={() => { setSelectedRoutine(null); void startWorkout(selectedRoutine); }} onEdit={selectedRoutineForEdit === undefined || selectedRoutineForEdit === null ? undefined : () => { setSelectedRoutine(null); openRoutineEditor(selectedRoutineForEdit); }} /> : null}{routineEditorOpen ? <RoutineEditor routine={editingRoutine} exercises={catalogExercises ?? []} saving={routineSaving} online={online} onClose={() => setRoutineEditorOpen(false)} onSave={(name, description, exerciseIds) => void saveRoutine(name, description, exerciseIds)} /> : null}{recoveryOpen ? <SyncRecoveryDetails operations={recoveryOperations} onClose={() => setRecoveryOpen(false)} /> : null}</div>;
+  return <div className="app-shell"><div className="ambient ambient-one" aria-hidden="true" /><div className="ambient ambient-two" aria-hidden="true" /><header className="topbar"><div className="brand-mark" aria-label="FORMA"><span className="brand-symbol">F</span><span>FORMA</span></div><div className="topbar-actions"><span className={`sync-pill ${online ? "is-online" : "is-offline"}`}><span className="sync-dot" aria-hidden="true" />{online ? "Online" : "Offline"}</span><button className="profile-button" type="button" aria-label="Abrir perfil" onClick={() => setProfileOpen(true)}>{session?.user.email?.slice(0, 1).toUpperCase() ?? "N"}</button></div></header><main className="app-content">{recoveryOperations.length > 0 ? <SyncRecoveryBanner count={recoveryOperations.length} onOpen={() => setRecoveryOpen(true)} /> : null}{activeTab === "home" ? <HomeView onStart={() => void startWorkout({ api: null, ...demoRoutines[0]! })} onCreate={() => openRoutineEditor()} onOpenRoutine={openRoutine} /> : null}{activeTab === "routines" ? <RoutinesView demoPlans={demoPlans} routines={routines} loading={routinesLoading} message={routineMessage} catalogExercises={catalogExercises ?? []} onCreate={() => openRoutineEditor()} onEdit={openRoutineEditor} onOpenRoutine={openRoutine} /> : null}{activeTab === "train" ? <TrainView key={activeWorkout?.id ?? (demoSessionStarted ? "demo-activa" : "sin-sesion")} started={demoSessionStarted || activeWorkout !== null} activeSession={activeWorkout} workoutName={workoutName} currentExercise={currentWorkoutExercise} exerciseDetails={workoutExerciseDetails} nextExercise={workoutExercises[currentExerciseIndex + 1] ?? null} currentExerciseIndex={currentExerciseIndex} totalExercises={workoutExercises.length} exerciseSets={exerciseSets} completedSets={completedSets} message={workoutMessage} onStart={() => void startWorkout()} onCompleteSet={completeSet} onNextExercise={goToNextExercise} onFinish={() => void finishWorkout()} /> : null}{activeTab === "progress" ? <ProgressView sessions={localSessions} /> : null}{activeTab === "exercises" ? <ExercisesView query={exerciseQuery} onQueryChange={setExerciseQuery} exercises={filteredExercises} loading={catalogLoading} message={catalogMessage} source={catalogExercises === null ? "demo" : "api"} /> : null}</main><nav className="bottom-nav" aria-label="Navegación principal">{tabs.map((tab) => <button className={`nav-item ${activeTab === tab.id ? "is-active" : ""} ${tab.id === "train" ? "train-nav-item" : ""}`} type="button" key={tab.id} onClick={() => setActiveTab(tab.id)}><span className={tab.id === "train" ? "train-nav-icon" : "nav-icon"}><Icon name={tab.icon} size={tab.id === "train" ? 21 : 19} /></span><span>{tab.label}</span></button>)}</nav>{profileOpen ? <ProfileDrawer session={session} serverUser={serverUser} authLoading={authLoading} authBusy={authBusy} authMessage={authMessage} serverIdentityLoading={serverIdentityLoading} serverIdentityMessage={serverIdentityMessage} email={email} password={password} supabaseConfigured={supabase !== null} onClose={() => setProfileOpen(false)} onSubmit={(event) => void handleSubmit(event)} onEmailChange={setEmail} onPasswordChange={setPassword} onSignOut={() => void handleSignOut()} /> : null}{selectedRoutine ? <RoutineDetail routine={selectedRoutine} catalogExercises={catalogExercises ?? []} onClose={() => setSelectedRoutine(null)} onStart={() => { setSelectedRoutine(null); void startWorkout(selectedRoutine); }} onEdit={selectedRoutine.demoPlan ? () => { setSelectedRoutine(null); openRoutineEditor(null, selectedRoutine.demoPlan); } : selectedRoutineForEdit === undefined || selectedRoutineForEdit === null ? undefined : () => { setSelectedRoutine(null); openRoutineEditor(selectedRoutineForEdit); }} /> : null}{routineEditorOpen ? <RoutineEditor routine={editingRoutine} demo={demoEditor} demoPlan={editingDemoPlan} message={routineMessage} exercises={demoEditor ? demoWorkoutExercises.map((exercise) => ({ id: exercise.id, name: exercise.name, description: exercise.muscle })) : catalogExercises ?? []} saving={routineSaving} online={online} onClose={() => setRoutineEditorOpen(false)} onSave={(name, description, exerciseIds) => void saveRoutine(name, description, exerciseIds)} /> : null}{recoveryOpen ? <SyncRecoveryDetails operations={recoveryOperations} onClose={() => setRecoveryOpen(false)} /> : null}</div>;
 }
 
 function HomeView({ onStart, onCreate, onOpenRoutine }: { onStart: () => void; onCreate: () => void; onOpenRoutine: (routine: RoutineSummary) => void }): ReactElement {
@@ -350,10 +396,14 @@ function HomeView({ onStart, onCreate, onOpenRoutine }: { onStart: () => void; o
   </div>;
 }
 
-function RoutinesView({ routines, loading, message, catalogExercises, onCreate, onEdit, onOpenRoutine }: { routines: ApiRoutine[] | null; loading: boolean; message: string | null; catalogExercises: ApiExercise[]; onCreate: () => void; onEdit: (routine: ApiRoutine) => void; onOpenRoutine: (routine: RoutineSummary) => void }): ReactElement {
+function RoutinesView({ demoPlans, routines, loading, message, catalogExercises, onCreate, onEdit, onOpenRoutine }: { demoPlans: DemoPlan[]; routines: ApiRoutine[] | null; loading: boolean; message: string | null; catalogExercises: ApiExercise[]; onCreate: () => void; onEdit: (routine: ApiRoutine) => void; onOpenRoutine: (routine: RoutineSummary) => void }): ReactElement {
   const real = routines !== null;
-  const cards: RoutineSummary[] = real ? routines.map((api, index) => ({ api, name: api.name, detail: `${api.exercises.length} ejercicios · revisión ${api.revision}`, accent: (["violet", "blue", "green", "orange"] as RoutineAccent[])[index % 4] ?? "violet", progress: 0, muscleGroup: "Plan personal", note: "Estructura lista para entrenar" })) : demoRoutines.map((demo) => ({ api: null, ...demo }));
-  return <div className="screen-stack"><section className="screen-header-row"><div><p className="eyebrow">PLANIFICACIÓN</p><h1>Mis rutinas</h1><p className="screen-subtitle">Elegí una sesión, revisá el plan y entrená sin perder el foco.</p></div><button className="round-action" type="button" aria-label="Crear rutina" onClick={onCreate}><Icon name="plus" size={20} /></button></section><div className="segmented-control" role="tablist" aria-label="Tipos de rutina"><button className="is-selected" type="button">Mis rutinas</button><button type="button">Programas</button></div>{loading ? <p className="status-line">Cargando rutinas online…</p> : null}{message ? <p className="form-error" role="alert">{message}</p> : null}{!real ? <span className="demo-label section-demo-label">Datos demo · edición online disponible al iniciar sesión</span> : null}<div className="routine-card-list">{cards.map((card, index) => <div className={`routine-card-wrap routine-card-${card.accent}`} key={card.api?.id ?? card.name}><button className="routine-card" type="button" onClick={() => onOpenRoutine(card)}><span className="routine-card-top"><span>{index === 0 ? "HOY" : "PLANTILLA"}</span><Icon name="chevron" size={17} /></span><span className="routine-card-art"><span>{card.muscleGroup}</span><Icon name="train" size={25} /></span><span className="routine-card-title">{card.name}</span><span className="routine-card-detail">{card.detail}</span><span className="routine-progress"><span style={{ width: `${card.progress}%` }} /></span><span className="routine-card-footer"><span>{card.progress > 0 ? `${card.progress}% completado` : "Lista para entrenar"}</span><span>{card.note}</span></span></button>{card.api !== null ? <button className="routine-edit-button" type="button" onClick={() => { if (card.api !== null) onEdit(card.api); }}>Editar estructura</button> : null}</div>)}</div>{real && routines.length === 0 ? <div className="empty-workout-card compact-empty"><p className="eyebrow">SIN RUTINAS</p><h2>Creá tu primera rutina.</h2><p>La estructura se edita online y queda protegida por tu identidad.</p><button className="primary-button" type="button" onClick={onCreate}>Crear rutina <Icon name="plus" size={17} /></button></div> : null}<small className="screen-footnote">{real ? `${catalogExercises.length} ejercicios oficiales disponibles para editar.` : "La demo usa datos de ejemplo; los entrenamientos reales se guardan localmente."}</small></div>;
+  const localCards: RoutineSummary[] = demoPlans.map((demoPlan) => ({
+    api: null, demoPlan, name: demoPlan.name, detail: `${demoPlan.exerciseIds.length} ejercicios`,
+    accent: "violet", progress: 0, muscleGroup: "Plan de prueba", note: "En este dispositivo",
+  }));
+  const cards: RoutineSummary[] = [...localCards, ...(real ? routines.map((api, index) => ({ api, name: api.name, detail: `${api.exercises.length} ejercicios · revisión ${api.revision}`, accent: (["violet", "blue", "green", "orange"] as RoutineAccent[])[index % 4] ?? "violet", progress: 0, muscleGroup: "Plan personal", note: "Estructura lista para entrenar" })) : demoRoutines.map((demo) => ({ api: null, ...demo })))];
+  return <div className="screen-stack"><section className="screen-header-row"><div><p className="eyebrow">PLANIFICACIÓN</p><h1>Mis rutinas</h1><p className="screen-subtitle">Elegí una sesión, revisá el plan y entrená sin perder el foco.</p></div><button className="round-action" type="button" aria-label="Crear rutina" onClick={onCreate}><Icon name="plus" size={20} /></button></section><div className="segmented-control" role="tablist" aria-label="Tipos de rutina"><button className="is-selected" type="button">Mis rutinas</button><button type="button">Programas</button></div>{loading ? <p className="status-line">Cargando rutinas online…</p> : null}{message ? <p className="form-error" role="alert">{message}</p> : null}{!real ? <span className="demo-label section-demo-label">Vista de prueba · podés crear un plan en este dispositivo</span> : null}<div className="routine-card-list">{cards.map((card, index) => <div className={`routine-card-wrap routine-card-${card.accent}`} key={card.demoPlan?.id ?? card.api?.id ?? card.name}><button className="routine-card" type="button" onClick={() => onOpenRoutine(card)}><span className="routine-card-top"><span>{card.demoPlan ? "PLAN LOCAL" : index === 0 ? "HOY" : "PLANTILLA"}</span><Icon name="chevron" size={17} /></span><span className="routine-card-art"><span>{card.muscleGroup}</span><Icon name="train" size={25} /></span><span className="routine-card-title">{card.name}</span><span className="routine-card-detail">{card.detail}</span><span className="routine-progress"><span style={{ width: `${card.progress}%` }} /></span><span className="routine-card-footer"><span>{card.progress > 0 ? `${card.progress}% completado` : "Lista para entrenar"}</span><span>{card.note}</span></span></button>{card.api !== null ? <button className="routine-edit-button" type="button" onClick={() => { if (card.api !== null) onEdit(card.api); }}>Editar estructura</button> : null}</div>)}</div>{real && routines.length === 0 ? <div className="empty-workout-card compact-empty"><p className="eyebrow">SIN RUTINAS</p><h2>Creá tu primera rutina.</h2><p>La estructura se edita online y queda protegida por tu identidad.</p><button className="primary-button" type="button" onClick={onCreate}>Crear rutina <Icon name="plus" size={17} /></button></div> : null}<small className="screen-footnote">{real ? `${catalogExercises.length} ejercicios oficiales disponibles para editar.` : "La demo usa datos de ejemplo; los entrenamientos reales se guardan localmente."}</small></div>;
 }
 
 function TrainView({ started, activeSession, workoutName, currentExercise, exerciseDetails, nextExercise, currentExerciseIndex, totalExercises, exerciseSets, completedSets, message, onStart, onCompleteSet, onNextExercise, onFinish }: { started: boolean; activeSession: WorkoutSession | null; workoutName: string; currentExercise: WorkoutExercise; exerciseDetails: ExerciseCard | undefined; nextExercise: WorkoutExercise | null; currentExerciseIndex: number; totalExercises: number; exerciseSets: WorkoutSetInput[]; completedSets: number; message: string | null; onStart: () => void; onCompleteSet: (loadKg: number, repetitions: number) => Promise<boolean>; onNextExercise: () => void; onFinish: () => void }): ReactElement {
@@ -562,8 +612,8 @@ function WorkoutStopwatch(): ReactElement {
 
 function RoutineDetail({ routine, catalogExercises, onClose, onStart, onEdit }: { routine: RoutineSummary; catalogExercises: ApiExercise[]; onClose: () => void; onStart: () => void; onEdit: (() => void) | undefined }): ReactElement {
   const activeExercises = routine.api?.exercises.filter((item) => item.status === "active").sort((a, b) => a.position - b.position) ?? [];
-  const names = activeExercises.length > 0 ? activeExercises.map((item) => catalogExercises.find((exercise) => exercise.id === item.exerciseId)?.name ?? "Ejercicio oficial") : ["Sentadilla con barra", "Prensa inclinada", "Peso muerto rumano", "Extensión de piernas"];
-  return <div className="drawer-layer" role="presentation" onClick={onClose}><section className={`routine-detail routine-detail-${routine.accent}`} role="dialog" aria-modal="true" aria-labelledby="routine-detail-title" onClick={(event) => event.stopPropagation()}><div className="routine-detail-hero"><button className="close-button routine-detail-close" type="button" onClick={onClose} aria-label="Cerrar detalle">×</button><div className="routine-detail-art"><Icon name="train" size={39} /><span>{routine.muscleGroup}</span></div><span className="card-kicker">{routine.note.toUpperCase()}</span><h2 id="routine-detail-title">{routine.name}</h2><p>{routine.detail}</p></div><div className="routine-detail-body"><div className="routine-detail-stats"><span><strong>{names.length}</strong><small>ejercicios</small></span><span><strong>52</strong><small>minutos</small></span><span><strong>{routine.progress || "—"}</strong><small>{routine.progress ? "% completado" : "progreso"}</small></span></div><div className="section-heading compact"><div><p className="eyebrow">ESTRUCTURA</p><h3>Tu sesión</h3></div><span className="detail-session-note">{routine.progress > 0 ? "En progreso" : "Lista"}</span></div><div className="routine-exercise-list">{names.slice(0, 6).map((name, index) => <div className="routine-exercise-row" key={`${name}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{name}</strong><small>{index === 0 ? "Principal · 4 series" : "Accesorio · 3 series"}</small></div><Icon name="chevron" size={16} /></div>)}</div><div className="routine-detail-actions"><button className="primary-button full-button" type="button" onClick={onStart}>Comenzar sesión <Icon name="arrow" size={17} /></button>{onEdit ? <button className="secondary-button full-button" type="button" onClick={onEdit}>Editar estructura</button> : null}</div><p className="security-note">La estructura de la rutina se modifica online. El registro de cada serie se guarda localmente durante el entrenamiento.</p></div></section></div>;
+  const names = routine.demoPlan ? buildWorkoutExercises(routine, null).map((exercise) => exercise.name) : activeExercises.length > 0 ? activeExercises.map((item) => catalogExercises.find((exercise) => exercise.id === item.exerciseId)?.name ?? "Ejercicio oficial") : ["Sentadilla con barra", "Prensa inclinada", "Peso muerto rumano", "Extensión de piernas"];
+  return <div className="drawer-layer" role="presentation" onClick={onClose}><section className={`routine-detail routine-detail-${routine.accent}`} role="dialog" aria-modal="true" aria-labelledby="routine-detail-title" onClick={(event) => event.stopPropagation()}><div className="routine-detail-hero"><button className="close-button routine-detail-close" type="button" onClick={onClose} aria-label="Cerrar detalle">×</button><div className="routine-detail-art"><Icon name="train" size={39} /><span>{routine.muscleGroup}</span></div><span className="card-kicker">{routine.note.toUpperCase()}</span><h2 id="routine-detail-title">{routine.name}</h2><p>{routine.detail}</p></div><div className="routine-detail-body"><div className="routine-detail-stats"><span><strong>{names.length}</strong><small>ejercicios</small></span>{!routine.demoPlan && <span><strong>52</strong><small>minutos</small></span>}<span><strong>{routine.progress || "—"}</strong><small>{routine.progress ? "% completado" : "progreso"}</small></span></div><div className="section-heading compact"><div><p className="eyebrow">ESTRUCTURA</p><h3>Tu sesión</h3></div><span className="detail-session-note">{routine.progress > 0 ? "En progreso" : "Lista"}</span></div><div className="routine-exercise-list">{(routine.demoPlan ? names : names.slice(0, 6)).map((name, index) => <div className="routine-exercise-row" key={`${name}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{name}</strong><small>{routine.demoPlan ? `${defaultWorkoutSets} series` : index === 0 ? "Principal · 4 series" : "Accesorio · 3 series"}</small></div><Icon name="chevron" size={16} /></div>)}</div><div className="routine-detail-actions"><button className="primary-button full-button" type="button" onClick={onStart}>Comenzar sesión <Icon name="arrow" size={17} /></button>{onEdit ? <button className="secondary-button full-button" type="button" onClick={onEdit}>Editar estructura</button> : null}</div>{routine.demoPlan?.description && <p>{routine.demoPlan.description}</p>}<p className="security-note">{routine.demoPlan ? "Plan de prueba guardado en este dispositivo." : "La estructura de la rutina se modifica online. El registro de cada serie se guarda localmente durante el entrenamiento."}</p></div></section></div>;
 }
 
 function ExercisesView({ query, onQueryChange, exercises, loading, message, source }: { query: string; onQueryChange: (value: string) => void; exercises: ExerciseCard[]; loading: boolean; message: string | null; source: "demo" | "api" }): ReactElement { const [selected, setSelected] = useState<ExerciseCard | null>(null); return <div className="screen-stack"><section className="screen-header-row"><div><p className="eyebrow">BIBLIOTECA OFICIAL</p><h1>Ejercicios</h1><p className="screen-subtitle">Técnica, objetivos y errores frecuentes en una sola ficha.</p></div><button className="round-action" type="button" aria-label="Agregar ejercicio"><Icon name="plus" size={20} /></button></section><div className="catalog-meta"><span className={source === "api" ? "live-label" : "demo-label"}>{source === "api" ? "Catálogo online" : "Datos demo"}</span>{loading ? <span className="muted">Actualizando…</span> : null}</div>{message ? <p className="form-error" role="alert">{message}</p> : null}<label className="search-field"><Icon name="search" size={18} /><input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Buscar ejercicio o músculo" /></label><div className="filter-row"><button className="filter-chip is-selected" type="button">Todos</button><button className="filter-chip" type="button">Pecho</button><button className="filter-chip" type="button">Espalda</button><button className="filter-chip" type="button">Piernas</button></div><div className="exercise-library-list">{exercises.map((exercise) => <button className="library-exercise" type="button" key={exercise.id} onClick={() => setSelected(exercise)}><span className={`exercise-avatar avatar-${exercise.color}`}><Icon name="train" size={20} /></span><span className="library-exercise-copy"><strong>{exercise.name}</strong><small>{exercise.muscle}</small></span><span className="exercise-rank">{exercise.rank}<Icon name="chevron" size={15} /></span></button>)}</div>{exercises.length === 0 ? <p className="empty-search">No encontramos ejercicios con esa búsqueda.</p> : null}{selected ? <ExerciseDetails exercise={selected} onClose={() => setSelected(null)} /> : null}</div>; }
@@ -625,7 +675,61 @@ function DetailSection({ title, children }: { title: string; children: ReactNode
   return <section className="detail-section"><h3 className="eyebrow">{title}</h3>{children}</section>;
 }
 
-function RoutineEditor({ routine, exercises, saving, online, onClose, onSave }: { routine: ApiRoutine | null; exercises: ApiExercise[]; saving: boolean; online: boolean; onClose: () => void; onSave: (name: string, description: string, exerciseIds: string[]) => void }): ReactElement { const [name, setName] = useState(routine?.name ?? ""); const [description, setDescription] = useState(routine?.description ?? ""); const [selected, setSelected] = useState<string[]>(routine?.exercises.filter((item) => item.status === "active").sort((a, b) => a.position - b.position).map((item) => item.exerciseId) ?? []); const toggle = (id: string) => setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]); return <div className="drawer-layer" role="presentation" onClick={onClose}><section className="routine-editor" role="dialog" aria-modal="true" aria-labelledby="routine-editor-title" onClick={(event) => event.stopPropagation()}><div className="drawer-header"><div><p className="eyebrow">{routine === null ? "NUEVA RUTINA" : "EDICIÓN ONLINE"}</p><h2 id="routine-editor-title">{routine === null ? "Crear rutina" : "Editar rutina"}</h2></div><button className="close-button" type="button" onClick={onClose} aria-label="Cerrar editor">×</button></div><label>Nombre<input value={name} onChange={(event) => setName(event.target.value)} maxLength={120} placeholder="Ej. Piernas · Fuerza" /></label><label>Descripción<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={1000} placeholder="Objetivo y notas de la rutina" /></label><div className="editor-section"><div className="section-heading compact"><div><p className="eyebrow">ESTRUCTURA</p><h3>Ejercicios oficiales</h3></div><span className="editor-count">{selected.length}</span></div>{exercises.length === 0 ? <p className="muted">Necesitás catálogo online para agregar ejercicios.</p> : <div className="exercise-picker">{exercises.map((exercise) => <label className={`exercise-picker-row ${selected.includes(exercise.id) ? "is-selected" : ""}`} key={exercise.id}><input type="checkbox" checked={selected.includes(exercise.id)} onChange={() => toggle(exercise.id)} /><span><strong>{exercise.name}</strong><small>{exercise.description || "Ejercicio oficial"}</small></span></label>)}</div>}</div><p className="security-note">La estructura se edita online. No se crea una rutina offline ni se envía una operación pendiente.</p><button className="primary-button full-button" type="button" disabled={saving || !online || name.trim().length === 0} onClick={() => onSave(name, description, selected)}>{saving ? "Guardando…" : routine === null ? "Crear rutina" : "Guardar cambios"} <Icon name="arrow" size={17} /></button>{!online ? <p className="form-error" role="alert">Conectate para guardar cambios estructurales.</p> : null}</section></div>; }
+function RoutineEditor({ routine, demo, demoPlan, message, exercises, saving, online, onClose, onSave }: {
+  routine: ApiRoutine | null;
+  demo: boolean;
+  demoPlan: DemoPlan | null;
+  message: string | null;
+  exercises: Pick<ApiExercise, "id" | "name" | "description">[];
+  saving: boolean;
+  online: boolean;
+  onClose: () => void;
+  onSave: (name: string, description: string, exerciseIds: string[]) => void;
+}): ReactElement {
+  const creating = routine === null && demoPlan === null;
+  const [name, setName] = useState(demoPlan?.name ?? routine?.name ?? "");
+  const [description, setDescription] = useState(demoPlan?.description ?? routine?.description ?? "");
+  const [selected, setSelected] = useState<string[]>(() => demoPlan?.exerciseIds ?? routine?.exercises
+    .filter((item) => item.status === "active")
+    .sort((a, b) => a.position - b.position)
+    .map((item) => item.exerciseId) ?? []);
+  const toggle = (id: string) => setSelected((current) => current.includes(id)
+    ? current.filter((item) => item !== id)
+    : [...current, id]);
+
+  return <div className="drawer-layer" role="presentation" onClick={onClose}>
+    <section className="routine-editor" role="dialog" aria-modal="true" aria-labelledby="routine-editor-title" onClick={(event) => event.stopPropagation()}>
+      <div className="drawer-header">
+        <div><p className="eyebrow">{demo ? "PLAN LOCAL" : creating ? "NUEVA RUTINA" : "EDICIÓN ONLINE"}</p>
+          <h2 id="routine-editor-title">{creating ? "Crear rutina" : "Editar rutina"}</h2></div>
+        <button className="close-button" type="button" onClick={onClose} aria-label="Cerrar editor">×</button>
+      </div>
+      <label>Nombre<input value={name} onChange={(event) => setName(event.target.value)} maxLength={120} placeholder="Ej. Piernas · Fuerza" /></label>
+      <label>Descripción<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={1000} placeholder="Objetivo y notas de la rutina" /></label>
+      <div className="editor-section">
+        <div className="section-heading compact"><div><p className="eyebrow">ESTRUCTURA</p><h3>{demo ? "Elegí los ejercicios en orden" : "Ejercicios oficiales"}</h3></div>
+          <span className="editor-count">{selected.length}</span></div>
+        {exercises.length === 0 ? <p className="muted">Necesitás catálogo online para agregar ejercicios.</p> : <div className="exercise-picker">
+          {exercises.map((exercise) => {
+            const position = selected.indexOf(exercise.id);
+            return <label className={`exercise-picker-row ${position >= 0 ? "is-selected" : ""}`} key={exercise.id}>
+              <input type="checkbox" checked={position >= 0} onChange={() => toggle(exercise.id)} />
+              <span><strong>{demo && position >= 0 ? `${position + 1}. ` : ""}{exercise.name}</strong><small>{exercise.description || "Ejercicio oficial"}</small></span>
+            </label>;
+          })}
+        </div>}
+      </div>
+      <p className="security-note">{demo ? "Este plan de prueba queda guardado en este navegador." : "La estructura se edita online y se guarda en tu cuenta."}</p>
+      <button className="primary-button full-button" type="button"
+        disabled={saving || (!demo && !online) || name.trim().length === 0 || (demo && selected.length === 0)}
+        onClick={() => onSave(name, description, selected)}>
+        {saving ? "Guardando…" : creating ? "Crear rutina" : "Guardar cambios"} <Icon name="arrow" size={17} />
+      </button>
+      {message && <p className="form-error" role="alert">{message}</p>}
+      {!demo && !online && <p className="form-error" role="alert">Conectate para guardar cambios estructurales.</p>}
+    </section>
+  </div>;
+}
 
 function ProfileDrawer({ session, serverUser, authLoading, authBusy, authMessage, serverIdentityLoading, serverIdentityMessage, email, password, supabaseConfigured, onClose, onSubmit, onEmailChange, onPasswordChange, onSignOut }: { session: Session | null; serverUser: ApiUser | null; authLoading: boolean; authBusy: boolean; authMessage: string | null; serverIdentityLoading: boolean; serverIdentityMessage: string | null; email: string; password: string; supabaseConfigured: boolean; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onEmailChange: (value: string) => void; onPasswordChange: (value: string) => void; onSignOut: () => void }): ReactElement { return <div className="drawer-layer" role="presentation" onClick={onClose}><aside className="profile-drawer" role="dialog" aria-modal="true" aria-labelledby="profile-title" onClick={(event) => event.stopPropagation()}><div className="drawer-header"><div><p className="eyebrow">CUENTA</p><h2 id="profile-title">Tu perfil</h2></div><button className="close-button" type="button" onClick={onClose} aria-label="Cerrar perfil">×</button></div>{authLoading ? <p className="muted">Comprobando sesión…</p> : null}{!authLoading && session !== null ? <div className="profile-authenticated"><div className="profile-large-avatar">{session.user.email?.slice(0, 1).toUpperCase() ?? "N"}</div><h3>{session.user.email ?? "Atleta FORMA"}</h3><p className="muted">Sesión online activa</p>{serverIdentityLoading ? <p className="muted">Validando identidad interna…</p> : null}{serverUser !== null ? <p className="server-identity">Identidad FORMA validada · {serverUser.role}</p> : null}{serverIdentityMessage !== null ? <p className="form-error" role="alert">{serverIdentityMessage}</p> : null}<p className="security-note">La sesión offline todavía no conserva credenciales. Tus entrenamientos locales sí se guardan en el dispositivo.</p><button className="secondary-button" type="button" onClick={onSignOut} disabled={authBusy}><Icon name="logout" size={16} /> {authBusy ? "Cerrando…" : "Cerrar sesión"}</button></div> : null}{!authLoading && session === null ? <form className="drawer-auth-form" onSubmit={onSubmit}><div className="auth-intro"><div className="profile-large-avatar"><Icon name="profile" size={24} /></div><h3>Entrá a FORMA</h3><p className="muted">Sincronizá tu identidad cuando vuelvas a tener conexión.</p></div><label>Correo<input type="email" autoComplete="email" value={email} onChange={(event) => onEmailChange(event.target.value)} required /></label><label>Contraseña<input type="password" autoComplete="current-password" value={password} onChange={(event) => onPasswordChange(event.target.value)} required /></label><button className="primary-button full-button" type="submit" disabled={authBusy || !supabaseConfigured}>{authBusy ? "Ingresando…" : "Iniciar sesión"}</button>{!supabaseConfigured ? <p className="security-note">Configurá las variables VITE_SUPABASE_* para habilitar este entorno.</p> : null}{authMessage !== null ? <p className="form-error" role="alert">{authMessage}</p> : null}</form> : null}<div className="drawer-footer"><span>FORMA · diseño inicial</span><span>v0.1</span></div></aside></div>; }
 
@@ -668,6 +772,9 @@ function MetricCard({ label, value, detail, accent }: { label: string; value: st
 function Icon({ name, size = 20 }: { name: IconName; size?: number }): ReactElement { const content: Record<IconName, ReactNode> = { home: <><path d="m3 10 9-7 9 7" /><path d="M5 9v10h14V9" /><path d="M9 19v-6h6v6" /></>, routines: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></>, train: <><path d="M6 5v14M18 5v14M3 8h6M15 8h6M3 16h6M15 16h6" /><path d="M9 12h6" /></>, progress: <><path d="M4 19V5M4 19h16" /><path d="m7 15 3-4 3 2 5-7" /></>, exercises: <><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></>, profile: <><circle cx="12" cy="8" r="3.5" /><path d="M5 20c.8-3.2 3.1-5 7-5s6.2 1.8 7 5" /></>, arrow: <><path d="M4 12h15" /><path d="m13 6 6 6-6 6" /></>, bolt: <path d="m13 2-9 11h7l-1 9 9-12h-7l1-8Z" />, clock: <><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></>, search: <><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 4 4" /></>, plus: <><path d="M12 5v14M5 12h14" /></>, check: <path d="m5 12 4 4L19 6" />, chevron: <path d="m9 5 7 7-7 7" />, logout: <><path d="M10 5H5v14h5" /><path d="m14 8 4 4-4 4M8 12h10" /></> }; return <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{content[name]}</svg>; }
 function getClientInstanceId(ownerId: string): string { const key = `forma.client-instance.${ownerId}`; try { const existing = localStorage.getItem(key); if (existing !== null && existing.length > 0) return existing; const created = crypto.randomUUID(); localStorage.setItem(key, created); return created; } catch { return `memory-${ownerId}`; } }
 function buildWorkoutExercises(routine: RoutineSummary | null, catalogExercises: ApiExercise[] | null): WorkoutExercise[] {
+  if (routine?.demoPlan) {
+    return routine.demoPlan.exerciseIds.flatMap((id) => demoWorkoutExercises.filter((exercise) => exercise.id === id));
+  }
   if (routine?.api !== null && routine?.api !== undefined) {
     if (catalogExercises === null) return [];
     return routine.api.exercises

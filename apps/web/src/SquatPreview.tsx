@@ -11,14 +11,16 @@ const phases = [
 const squatMedia = "/media/exercises/squat-back-barbell";
 const repetitionDuration = 4.2;
 
-export function SquatRepetition({ videoRef, compact = false, onProgress }: {
+export function SquatRepetition({ videoRef, compact = false, onProgress, onPlaybackChange }: {
   videoRef?: RefObject<HTMLVideoElement | null>;
   compact?: boolean;
   onProgress?: (progress: number) => void;
+  onPlaybackChange?: (playing: boolean) => void;
 }): ReactElement {
   const fallbackRef = useRef<HTMLVideoElement>(null);
   const player = videoRef ?? fallbackRef;
   const [playing, setPlaying] = useState(false);
+  const [autoPlay] = useState(() => !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const video = <video
     ref={player}
     className={`squat-model squat-video${compact ? " squat-video-compact" : ""}`}
@@ -26,11 +28,12 @@ export function SquatRepetition({ videoRef, compact = false, onProgress }: {
     poster={`${squatMedia}/poster.webp`}
     aria-label="Sentadilla trasera con barra en vista de tres cuartos"
     preload="metadata"
+    autoPlay={autoPlay}
     playsInline
     muted
     loop
-    onPlay={() => setPlaying(true)}
-    onPause={() => setPlaying(false)}
+    onPlay={() => { setPlaying(true); onPlaybackChange?.(true); }}
+    onPause={() => { setPlaying(false); onPlaybackChange?.(false); }}
     onTimeUpdate={(event) => onProgress?.(event.currentTarget.currentTime / repetitionDuration)}
   />;
   if (!compact) return video;
@@ -74,6 +77,7 @@ export function SquatPreview(): ReactElement {
   const phase = phases[progress < .09 || progress >= .94 ? 0 : progress < .41 ? 1 : progress < .56 ? 2 : 3];
 
   function selectView(next: View) {
+    if (view === next) return;
     setPlaying(false);
     position.current = 0;
     setProgress(0);
@@ -87,7 +91,7 @@ export function SquatPreview(): ReactElement {
       <button type="button" aria-pressed={view === "technique"} onClick={() => selectView("technique")}>Técnica lateral</button>
       <button type="button" aria-pressed={view === "muscles"} onClick={() => selectView("muscles")}>Músculos</button>
     </div>
-    {view === "movement" ? <SquatRepetition videoRef={videoRef} onProgress={setProgress} /> :
+    {view === "movement" ? <SquatRepetition videoRef={videoRef} onProgress={setProgress} onPlaybackChange={setPlaying} /> :
       <SquatFigure progress={view === "muscles" ? .48 : progress} view={view} />}
     {view === "muscles" ? <p className="squat-cue"><strong>Cuádriceps y glúteo mayor.</strong> El color señala los grupos principales de forma orientativa.</p> : <>
       <div className="squat-controls squat-phases" role="group" aria-label="Fases de la repetición">

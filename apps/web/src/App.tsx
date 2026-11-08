@@ -354,6 +354,7 @@ function RoutinesView({ routines, loading, message, catalogExercises, onCreate, 
 function TrainView({ started, activeSession, workoutName, currentExercise, exerciseDetails, nextExercise, currentExerciseIndex, totalExercises, exerciseSets, completedSets, message, onStart, onCompleteSet, onNextExercise, onFinish }: { started: boolean; activeSession: WorkoutSession | null; workoutName: string; currentExercise: WorkoutExercise; exerciseDetails: ExerciseCard | undefined; nextExercise: WorkoutExercise | null; currentExerciseIndex: number; totalExercises: number; exerciseSets: WorkoutSetInput[]; completedSets: number; message: string | null; onStart: () => void; onCompleteSet: (loadKg: number, repetitions: number) => Promise<boolean>; onNextExercise: () => void; onFinish: () => void }): ReactElement {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const workoutVideoRef = useRef<HTMLVideoElement>(null);
+  const resumeWorkoutVideo = useRef(false);
   const [restDuration, setRestDuration] = useState(120);
   const [restSeconds, setRestSeconds] = useState(120);
   const [restDeadline, setRestDeadline] = useState<number | null>(null);
@@ -426,9 +427,15 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
   return <div className="screen-stack workout-screen"><section className="active-workout-header"><div><span className="live-label"><span className="live-dot" /> SESIÓN ACTIVA</span><h1>{workoutName.split(" · ")[0]} <span>{workoutName.includes(" · ") ? `· ${workoutName.split(" · ").slice(1).join(" · ")}` : ""}</span></h1><p className="screen-subtitle">{actual ? "Guardado local" : "Sesión demo"} <span className="bullet">•</span> {completedSets} {completedSets === 1 ? "serie" : "series"}</p></div><WorkoutStopwatch /></section>{message ? <p className="status-line">{message}</p> : null}<div className="workout-progress"><span style={{ width: `${Math.min(((currentExerciseIndex + 1) / totalExercises) * 100, 100)}%` }} /></div><section className="exercise-log-card">{exerciseDetails && hasSquatPreview(exerciseDetails) ?
     <SquatRepetition key={currentExercise.id} videoRef={workoutVideoRef} compact /> :
     <div className={`exercise-visual exercise-visual-${currentExercise.color}`}><div className="exercise-visual-orbit" aria-hidden="true" /><span className="exercise-visual-kicker">EJERCICIO {String(currentExerciseIndex + 1).padStart(2, "0")} / {String(totalExercises).padStart(2, "0")}</span><Icon name="train" size={36} /><span className="exercise-visual-muscle">{currentExercise.muscle}</span></div>}<div className="exercise-log-heading"><div><span className="exercise-index">{String(currentExerciseIndex + 1).padStart(2, "0")}</span><div><h2>{currentExercise.name}</h2><p>{actual ? "Catálogo oficial" : currentExercise.muscle}</p></div></div><span className="exercise-status">{exerciseSets.length} {exerciseSets.length === 1 ? "serie" : "series"}</span></div>{exerciseDetails && <WorkoutTechnique key={exerciseDetails.id} education={exerciseDetails.education} onOpen={() => {
-      workoutVideoRef.current?.pause();
+      const video = workoutVideoRef.current;
+      resumeWorkoutVideo.current = video !== null && !video.paused;
+      video?.pause();
       setDetailsOpen(true);
-    }} />}{exerciseDetails && detailsOpen && <ExerciseDetails exercise={exerciseDetails} onClose={() => setDetailsOpen(false)} />}
+    }} />}{exerciseDetails && detailsOpen && <ExerciseDetails exercise={exerciseDetails} onClose={() => {
+      setDetailsOpen(false);
+      if (resumeWorkoutVideo.current) void workoutVideoRef.current?.play().catch(() => undefined);
+      resumeWorkoutVideo.current = false;
+    }} />}
     <div className="set-header" aria-hidden="true"><span>Serie</span><span>Kg</span><span>Reps</span><span /></div>
     {Array.from({ length: rowCount }, (_, index) => {
       const set = exerciseSets[index];

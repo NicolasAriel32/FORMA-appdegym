@@ -429,19 +429,20 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
     <div className={`exercise-visual exercise-visual-${currentExercise.color}`}><div className="exercise-visual-orbit" aria-hidden="true" /><span className="exercise-visual-kicker">EJERCICIO {String(currentExerciseIndex + 1).padStart(2, "0")} / {String(totalExercises).padStart(2, "0")}</span><Icon name="train" size={36} /><span className="exercise-visual-muscle">{currentExercise.muscle}</span></div>}<div className="exercise-log-heading"><div><span className="exercise-index">{String(currentExerciseIndex + 1).padStart(2, "0")}</span><div><h2>{currentExercise.name}</h2><p>{actual ? "Catálogo oficial" : currentExercise.muscle}</p></div></div><span className="exercise-status">{exerciseSets.length} {exerciseSets.length === 1 ? "serie" : "series"}</span></div>{exerciseDetails && <WorkoutTechnique key={exerciseDetails.id} education={exerciseDetails.education} onOpen={() => {
       workoutVideoRef.current?.pause();
       setDetailsOpen(true);
-    }} />}{exerciseDetails && detailsOpen && <ExerciseDetails exercise={exerciseDetails} onClose={() => setDetailsOpen(false)} />}<form className="set-entry" onSubmit={(event) => { event.preventDefault(); void saveCurrentSet(); }}>
-      <label>Carga (kg)<input inputMode="decimal" min="0" step="any" type="number" required value={loadInput} onChange={(event) => { setLoadInput(event.target.value); setInputError(null); }} /></label>
-      <label>Repeticiones<input inputMode="numeric" min="1" step="1" type="number" required value={repetitionsInput} onChange={(event) => { setRepetitionsInput(event.target.value); setInputError(null); }} /></label>
-      <button className="primary-button set-save-button" type="submit" disabled={setPending}><Icon name="check" size={16} /> {setPending ? "Guardando…" : "Guardar serie"}</button>
+    }} />}{exerciseDetails && detailsOpen && <ExerciseDetails exercise={exerciseDetails} onClose={() => setDetailsOpen(false)} />}
+    <div className="set-header" aria-hidden="true"><span>Serie</span><span>Kg</span><span>Reps</span><span /></div>
+    {exerciseSets.map((set, index) => <div className="set-row" key={index}>
+      <span className="set-number">{index + 1}</span><span>{set.loadKg}</span><span>{set.repetitions}</span>
+      <span className="set-confirmed" role="img" aria-label={`Serie ${index + 1} completada`}><Icon name="check" size={18} /></span>
+    </div>)}
+    <form className="set-entry set-entry-inline" onSubmit={(event) => { event.preventDefault(); void saveCurrentSet(); }}>
+      <span className="set-number">{exerciseSets.length + 1}</span>
+      <input aria-label="Carga (kg)" placeholder="kg" inputMode="decimal" min="0" step="any" type="number" required value={loadInput} onChange={(event) => { setLoadInput(event.target.value); setInputError(null); }} />
+      <input aria-label="Repeticiones" placeholder="reps" inputMode="numeric" min="1" step="1" type="number" required value={repetitionsInput} onChange={(event) => { setRepetitionsInput(event.target.value); setInputError(null); }} />
+      <button className="primary-button set-complete-button" type="submit" disabled={setPending} aria-label={setPending ? "Guardando serie" : `Completar serie ${exerciseSets.length + 1}`}><Icon name="check" size={19} /></button>
     </form>
     {inputError && <p className="form-error" role="alert">{inputError}</p>}
     <WorkoutRest seconds={restSeconds} running={restRunning} minutes={restDuration / 60} onChange={changeRest} onToggle={toggleRest} />
-    {exerciseSets.length > 0 && <>
-      <div className="set-header"><span>Serie</span><span>Kg</span><span>Reps</span></div>
-      {exerciseSets.map((set, index) => <div className="set-row" key={index}>
-        <span className="set-number">{index + 1}</span><span>{set.loadKg}</span><span>{set.repetitions}</span>
-      </div>)}
-    </>}
     <button className="secondary-button finish-button" type="button" disabled={setPending} onClick={onFinish}>Finalizar sesión</button></section>{currentExerciseIndex < totalExercises - 1 && nextExercise !== null ? <button className="next-exercise-card" type="button" disabled={setPending} onClick={() => {
       setLoadInput("");
       setRepetitionsInput("");

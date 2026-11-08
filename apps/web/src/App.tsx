@@ -358,7 +358,7 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
   const [restSeconds, setRestSeconds] = useState(120);
   const [restDeadline, setRestDeadline] = useState<number | null>(null);
   const restRunning = restDeadline !== null;
-  const [extraSetExerciseId, setExtraSetExerciseId] = useState<string | null>(null);
+  const [minimumSetRows, setMinimumSetRows] = useState(0);
   const [setPending, setSetPending] = useState(false);
   const [inputError, setInputError] = useState<string | null>(null);
   useEffect(() => {
@@ -400,7 +400,7 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
 
   const actual = activeSession !== null;
   const targetSets = currentExercise.targetSets ?? defaultWorkoutSets;
-  const rowCount = Math.max(targetSets, exerciseSets.length + Number(extraSetExerciseId === currentExercise.id));
+  const rowCount = Math.max(targetSets, exerciseSets.length, minimumSetRows);
 
   async function saveCurrentSet(form: HTMLFormElement, index: number): Promise<void> {
     if (setPending || index !== exerciseSets.length) return;
@@ -416,7 +416,6 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
     setSetPending(true);
     try {
       if (await onCompleteSet(loadKg, repetitions)) {
-        setExtraSetExerciseId(null);
         startRest(restDuration);
       }
     } finally {
@@ -449,12 +448,13 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
         <button className="primary-button set-complete-button" type="submit" disabled={setPending || index !== exerciseSets.length} aria-label={`Completar serie ${number}`}><Icon name="check" size={19} /></button>
       </form>;
     })}
-    {exerciseSets.length >= targetSets && extraSetExerciseId !== currentExercise.id &&
-      <button className="secondary-button add-workout-set" type="button" onClick={() => setExtraSetExerciseId(currentExercise.id)}>Agregar serie</button>}
+    <button className="secondary-button add-workout-set" type="button" onClick={() => {
+      setMinimumSetRows((previous) => Math.max(previous, rowCount) + 1);
+    }}><Icon name="plus" size={17} /> Agregar serie</button>
     {inputError && <p className="form-error" role="alert">{inputError}</p>}
     <WorkoutRest seconds={restSeconds} running={restRunning} minutes={restDuration / 60} onChange={changeRest} onToggle={toggleRest} />
     <button className="secondary-button finish-button" type="button" disabled={setPending} onClick={onFinish}>Finalizar sesión</button></section>{currentExerciseIndex < totalExercises - 1 && nextExercise !== null ? <button className="next-exercise-card" type="button" disabled={setPending} onClick={() => {
-      setExtraSetExerciseId(null);
+      setMinimumSetRows(0);
       setInputError(null);
       onNextExercise();
     }}><span className="card-kicker">SIGUIENTE EJERCICIO</span><div><h2>{nextExercise.name}</h2><p>{nextExercise.muscle} · avanzar cuando termines tus series</p></div><Icon name="chevron" size={18} /></button> : <section className="next-exercise-card is-complete"><span className="card-kicker">PLAN COMPLETO</span><div><h2>Último ejercicio de la sesión</h2><p>Revisá tus series y finalizá cuando estés listo.</p></div><Icon name="check" size={18} /></section>}</div>;
@@ -467,23 +467,43 @@ function formatWorkoutTime(seconds: number): string {
 function WorkoutRest({ seconds, running, minutes, onChange, onToggle }: {
   seconds: number; running: boolean; minutes: number; onChange: (minutes: number) => void; onToggle: () => void;
 }): ReactElement {
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [custom, setCustom] = useState("");
+  const remaining = Math.min(100, (seconds / (minutes * 60)) * 100);
+
+  function applyDuration(value: number): void {
+    onChange(value);
+    setSettingsOpen(false);
+  }
+
   return <section className={`rest-card ${running ? "is-running" : ""}`} aria-label="Descanso entre series">
     <div className="rest-heading">
-      <div><span className="card-kicker">DESCANSO</span><strong role="timer">{formatWorkoutTime(seconds)}</strong></div>
-      <button className="rest-toggle" type="button" onClick={onToggle}>{running ? "Pausar descanso" : "Iniciar descanso"}</button>
+      <span className="rest-icon" aria-hidden="true"><Icon name="clock" size={20} /></span>
+      <div className="rest-readout"><span className="card-kicker">DESCANSO</span><strong role="timer">{formatWorkoutTime(seconds)}</strong></div>
+      <button className="rest-toggle rest-play" type="button" onClick={onToggle} aria-label={running ? "Pausar descanso" : "Iniciar descanso"}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">{running
+          ? <path d="M4 3h3v10H4zm5 0h3v10H9z" />
+          : <path d="M5 2.5v11L13 8z" />}</svg>
+      </button>
     </div>
-    <div className="rest-presets" role="group" aria-label="Duración del descanso">
-      {[2, 3].map((value) => <button key={value} className="rest-toggle" type="button" aria-pressed={minutes === value} onClick={() => onChange(value)}>{value} min</button>)}
+    <div className="rest-progress" aria-hidden="true"><span style={{ width: `${remaining}%` }} /></div>
+    <button className="rest-duration" type="button" aria-expanded={settingsOpen} aria-controls="workout-rest-settings" onClick={() => {
+      if (!settingsOpen) setCustom(String(minutes));
+      setSettingsOpen(!settingsOpen);
+    }}><span>Duración del descanso</span><strong>{minutes} min <Icon name="chevron" size={14} /></strong></button>
+    <div className="rest-settings" id="workout-rest-settings" hidden={!settingsOpen}>
+      <div className="rest-presets" role="group" aria-label="Duración del descanso">
+        {[2, 3].map((value) => <button key={value} className="rest-toggle" type="button" aria-pressed={minutes === value} onClick={() => applyDuration(value)}>{value} min</button>)}
+      </div>
+      <form className="rest-custom" onSubmit={(event) => {
+        event.preventDefault();
+        const value = Number(custom);
+        if (Number.isInteger(value) && value >= 1 && value <= 60) applyDuration(value);
+      }}>
+        <label>Minutos personalizados<input type="number" inputMode="numeric" min="1" max="60" step="1" required value={custom} onChange={(event) => setCustom(event.target.value)} /></label>
+        <button className="rest-toggle" type="submit">Aplicar</button>
+      </form>
     </div>
-    <form className="rest-custom" onSubmit={(event) => {
-      event.preventDefault();
-      const value = Number(custom);
-      if (Number.isInteger(value) && value >= 1 && value <= 60) onChange(value);
-    }}>
-      <label>Minutos personalizados<input type="number" inputMode="numeric" min="1" max="60" step="1" required value={custom} onChange={(event) => setCustom(event.target.value)} /></label>
-      <button className="rest-toggle" type="submit">Aplicar</button>
-    </form>
   </section>;
 }
 

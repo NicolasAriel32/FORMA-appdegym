@@ -300,11 +300,22 @@ html:has(.exercise-details[open]) { overflow: hidden; }
 .set-entry-inline input { text-align: center; }
 .set-complete-button { min-width: 44px; min-height: 44px; padding: 0; }
 .set-confirmed { display: grid; min-height: 32px; place-items: center; color: #80d5b2; }
-.exercise-log-card .rest-card { display: grid; gap: 10px; margin: 0 0 16px; }
-.rest-card .rest-heading { display: flex; align-items: center; justify-content: space-between; }
+.exercise-log-card .rest-card { display: grid; gap: 9px; margin: 0 0 16px; padding: 12px 14px 4px; }
+.rest-card .rest-heading { display: grid; grid-template-columns: 40px 1fr 44px; align-items: center; gap: 10px; }
+.rest-icon { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 12px; background: #2e2748; color: #c8b9fa; }
+.rest-readout { display: grid; gap: 2px; }
 .rest-heading strong, .workout-stopwatch > strong { font-variant-numeric: tabular-nums; }
-.rest-card .rest-presets, .rest-custom { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; }
+.rest-progress { height: 3px; overflow: hidden; border-radius: 6px; background: #342d4b; }
+.rest-progress span { display: block; height: 100%; background: #a58ef8; }
+.rest-duration { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 44px; padding: 0; background: transparent; color: #c0bdd1; font-size: .8rem; cursor: pointer; text-align: left; }
+.rest-duration strong { display: inline-flex; align-items: center; gap: 4px; font-size: .8rem; white-space: nowrap; }
+.rest-duration[aria-expanded="true"] .icon { transform: rotate(90deg); }
+.rest-card .rest-settings { display: grid; gap: 8px; padding: 0 0 10px; }
+.rest-card .rest-settings[hidden] { display: none; }
+.rest-card .rest-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rest-custom { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
 .rest-toggle { min-height: 44px; }
+.rest-play { display: grid; width: 44px; place-items: center; padding: 0; }
 .rest-toggle[aria-pressed="true"] { border-color: #aa96f8; background: #39305d; }
 .rest-custom label { display: grid; gap: 4px; font-size: .75rem; }
 .rest-custom input { width: 100%; min-height: 44px; border: 1px solid #514866; border-radius: 10px; padding: 0 8px; background: #161723; color: inherit; font-size: 1rem; }

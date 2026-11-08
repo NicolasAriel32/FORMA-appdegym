@@ -1,12 +1,16 @@
-const CACHE_NAME = "forma-shell-v7";
-const SQUAT_VIDEO = "/media/exercises/squat-back-barbell/repetition-pilot.mp4";
+const CACHE_NAME = "forma-shell-v8";
+const EXERCISE_VIDEOS = new Set([
+  "/media/exercises/squat-back-barbell/repetition-pilot.mp4",
+  "/media/exercises/bench-press-barbell/repetition-pilot.mp4",
+]);
 const SHELL = [
   "/",
   "/manifest.webmanifest",
   "/forma-icon-180.png",
   "/forma-icon-192.png",
   "/forma-icon-512.png",
-  SQUAT_VIDEO,
+  ...EXERCISE_VIDEOS,
+  "/media/exercises/bench-press-barbell/poster.webp",
   "/media/exercises/squat-start.webp",
   "/media/exercises/squat-descent.webp",
   "/media/exercises/squat-return.webp",
@@ -52,8 +56,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname === SQUAT_VIDEO) {
-    event.respondWith(serveSquatVideo(event.request));
+  if (EXERCISE_VIDEOS.has(url.pathname)) {
+    event.respondWith(serveExerciseVideo(event.request, url.pathname));
     return;
   }
 
@@ -66,8 +70,8 @@ async function matchShell(path) {
   return (await caches.open(CACHE_NAME)).match(path);
 }
 
-async function serveSquatVideo(request) {
-  const cached = await matchShell(SQUAT_VIDEO);
+async function serveExerciseVideo(request, path) {
+  const cached = await matchShell(path);
   if (!cached) return fetch(request);
 
   const range = request.headers.get("range");

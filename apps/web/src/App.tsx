@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SquatPreview, SquatRepetition } from "./SquatPreview.js";
+import { SquatPreview } from "./SquatPreview.js";
+import { ExerciseRepetition } from "./ExerciseRepetition.js";
+import type { Demonstration } from "./ExerciseRepetition.js";
 import type { FormEvent, ReactElement, ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import type { ExerciseId, SessionId, SetId, UserId, WorkoutSession } from "../../../packages/domain/src/workout.js";
@@ -50,9 +52,10 @@ type ExerciseEducation = {
   difficulty: string;
 };
 type ExerciseCard = { id: string; name: string; muscle: string; rank: string; color: string; education: ExerciseEducation };
-function hasSquatPreview(exercise: ExerciseCard): boolean {
+function demonstrationFor(exercise: Pick<ExerciseCard, "id" | "name">): Demonstration | undefined {
   const name = exercise.name.trim().toLocaleLowerCase("es");
-  return exercise.id === "demo-squat" || name === "sentadilla trasera con barra" || name === "sentadilla con barra";
+  if (exercise.id === "demo-squat" || name === "sentadilla trasera con barra" || name === "sentadilla con barra") return "squat";
+  if (exercise.id === "demo-bench" || /^press (?:de |en )?banca(?: plano)?(?: con barra)?$/.test(name)) return "bench";
 }
 
 type RoutineAccent = "violet" | "blue" | "green" | "orange";
@@ -423,9 +426,10 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
       setSetPending(false);
     }
   }
+  const demonstration = demonstrationFor(currentExercise);
   if (!started) return <div className="screen-stack"><section className="screen-header-row"><div><p className="eyebrow">MODO ENTRENAMIENTO</p><h1>Entrenar</h1><p className="screen-subtitle">Tu sesión queda guardada localmente mientras entrenás.</p></div><span className="offline-badge"><Icon name="bolt" size={14} /> Offline ready</span></section>{message ? <p className="status-line">{message}</p> : null}<section className="empty-workout-card"><div className="empty-icon"><Icon name="train" size={28} /></div><p className="eyebrow">LISTO PARA EMPEZAR</p><h2>Tu próxima sesión está acá.</h2><p>Iniciá una rutina y registrá cada serie sin depender de la conexión.</p><button className="primary-button" type="button" onClick={onStart}>Comenzar Piernas <Icon name="arrow" size={17} /></button></section><section className="training-principles"><span><Icon name="bolt" size={16} /><b>Offline first</b><small>Guardado inmediato</small></span><span><Icon name="clock" size={16} /><b>Descanso</b><small>Controlá tu ritmo</small></span><span><Icon name="check" size={16} /><b>Progreso</b><small>Serie por serie</small></span></section></div>;
-  return <div className="screen-stack workout-screen"><section className="active-workout-header"><div><span className="live-label"><span className="live-dot" /> SESIÓN ACTIVA</span><h1>{workoutName.split(" · ")[0]} <span>{workoutName.includes(" · ") ? `· ${workoutName.split(" · ").slice(1).join(" · ")}` : ""}</span></h1><p className="screen-subtitle">{actual ? "Guardado local" : "Sesión demo"} <span className="bullet">•</span> {completedSets} {completedSets === 1 ? "serie" : "series"}</p></div><WorkoutStopwatch /></section>{message ? <p className="status-line">{message}</p> : null}<div className="workout-progress"><span style={{ width: `${Math.min(((currentExerciseIndex + 1) / totalExercises) * 100, 100)}%` }} /></div><section className="exercise-log-card">{exerciseDetails && hasSquatPreview(exerciseDetails) ?
-    <SquatRepetition key={currentExercise.id} videoRef={workoutVideoRef} compact /> :
+  return <div className="screen-stack workout-screen"><section className="active-workout-header"><div><span className="live-label"><span className="live-dot" /> SESIÓN ACTIVA</span><h1>{workoutName.split(" · ")[0]} <span>{workoutName.includes(" · ") ? `· ${workoutName.split(" · ").slice(1).join(" · ")}` : ""}</span></h1><p className="screen-subtitle">{actual ? "Guardado local" : "Sesión demo"} <span className="bullet">•</span> {completedSets} {completedSets === 1 ? "serie" : "series"}</p></div><WorkoutStopwatch /></section>{message ? <p className="status-line">{message}</p> : null}<div className="workout-progress"><span style={{ width: `${Math.min(((currentExerciseIndex + 1) / totalExercises) * 100, 100)}%` }} /></div><section className="exercise-log-card">{demonstration ?
+    <ExerciseRepetition key={currentExercise.id} demonstration={demonstration} videoRef={workoutVideoRef} compact /> :
     <div className={`exercise-visual exercise-visual-${currentExercise.color}`}><div className="exercise-visual-orbit" aria-hidden="true" /><span className="exercise-visual-kicker">EJERCICIO {String(currentExerciseIndex + 1).padStart(2, "0")} / {String(totalExercises).padStart(2, "0")}</span><Icon name="train" size={36} /><span className="exercise-visual-muscle">{currentExercise.muscle}</span></div>}<div className="exercise-log-heading"><div><span className="exercise-index">{String(currentExerciseIndex + 1).padStart(2, "0")}</span><div><h2>{currentExercise.name}</h2><p>{actual ? "Catálogo oficial" : currentExercise.muscle}</p></div></div><span className="exercise-status">{exerciseSets.length} {exerciseSets.length === 1 ? "serie" : "series"}</span></div>{exerciseDetails && <WorkoutTechnique key={exerciseDetails.id} education={exerciseDetails.education} onOpen={() => {
       const video = workoutVideoRef.current;
       resumeWorkoutVideo.current = video !== null && !video.paused;
@@ -600,7 +604,11 @@ function ExerciseDetails({ exercise, onClose }: { exercise: ExerciseCard; onClos
       <div><p className="eyebrow">{info.difficulty} · {info.equipment}</p><h2 id="exercise-detail-title">{exercise.name}</h2></div>
       <button className="close-button" type="button" onClick={onClose} aria-label="Cerrar ficha">×</button>
     </header>
-    {hasSquatPreview(exercise) && <SquatPreview />}
+    {demonstrationFor(exercise) === "squat" && <SquatPreview />}
+    {demonstrationFor(exercise) === "bench" && <section className="squat-preview" aria-label="Demostración de press de banca plano">
+      <p className="exercise-detail-kicker">DEMOSTRACIÓN · MODELO PILOTO</p>
+      <ExerciseRepetition demonstration="bench" />
+    </section>}
     <DetailSection title="Ejecución técnica"><p>{info.instructions}</p></DetailSection>
     <DetailSection title="Músculos principales"><div className="tag-list">{info.targetMuscles.map((item) => <span key={item}>{item}</span>)}</div></DetailSection>
     <DetailSection title="Músculos secundarios"><div className="tag-list muted-tags">{info.secondaryMuscles.map((item) => <span key={item}>{item}</span>)}</div></DetailSection>

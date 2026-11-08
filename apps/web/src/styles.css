@@ -166,7 +166,13 @@ html:has(.exercise-details[open]) { overflow: hidden; }
 .squat-inline-play { position: absolute; right: 7px; bottom: 7px; min-height: 44px; max-width: 72px; padding: 4px 7px; border: 1px solid #514866; border-radius: 9px; background: #242035; color: #fff; font: inherit; font-size: .72rem; cursor: pointer; }
 .squat-cue { margin: 0; color: #d4cfe7; font-size: .85rem; line-height: 1.45; }
 .squat-play, .workout-technique { min-height: 44px; }
-.workout-technique { width: 100%; margin-bottom: 12px; }
+.workout-technique-panel { display: grid; gap: 8px; margin: 0 0 14px; }
+.workout-technique-panel h3, .workout-technique-panel p { margin: 0; }
+.workout-technique-panel h3 { font-size: .85rem; }
+.workout-technique-panel p, .workout-technique-panel li { color: #c0bdd1; font-size: .8rem; line-height: 1.5; }
+.workout-technique-panel summary { min-height: 44px; padding: 12px 0; color: #d6caff; font-size: .8rem; cursor: pointer; }
+.workout-technique-panel ul { display: grid; gap: 6px; margin: 0; padding: 0 0 8px 18px; }
+.workout-technique { width: 100%; }
 .detail-lead { margin: -14px 0 24px; color: #b2a9ed; font-size: .72rem; font-weight: 800; }
 .detail-section { padding: 15px 0; border-top: 1px solid rgba(255,255,255,.07); }
 .detail-section p:not(.eyebrow), .detail-section li { color: #b2b5c2; font-size: .78rem; line-height: 1.6; }

@@ -324,7 +324,7 @@ export default function App(): ReactElement {
     : demoSetsByExercise[currentWorkoutExercise.id] ?? [];
   const completedSets = activeWorkout?.sets.length
     ?? Object.values(demoSetsByExercise).reduce((total, sets) => total + sets.length, 0);
-  return <div className="app-shell"><div className="ambient ambient-one" aria-hidden="true" /><div className="ambient ambient-two" aria-hidden="true" /><header className="topbar"><div className="brand-mark" aria-label="FORMA"><span className="brand-symbol">F</span><span>FORMA</span></div><div className="topbar-actions"><span className={`sync-pill ${online ? "is-online" : "is-offline"}`}><span className="sync-dot" aria-hidden="true" />{online ? "Online" : "Offline"}</span><button className="profile-button" type="button" aria-label="Abrir perfil" onClick={() => setProfileOpen(true)}>{session?.user.email?.slice(0, 1).toUpperCase() ?? "N"}</button></div></header><main className="app-content">{recoveryOperations.length > 0 ? <SyncRecoveryBanner count={recoveryOperations.length} onOpen={() => setRecoveryOpen(true)} /> : null}{activeTab === "home" ? <HomeView onStart={() => void startWorkout({ api: null, ...demoRoutines[0]! })} onCreate={() => openRoutineEditor()} onOpenRoutine={openRoutine} /> : null}{activeTab === "routines" ? <RoutinesView routines={routines} loading={routinesLoading} message={routineMessage} catalogExercises={catalogExercises ?? []} onCreate={() => openRoutineEditor()} onEdit={openRoutineEditor} onOpenRoutine={openRoutine} /> : null}{activeTab === "train" ? <TrainView started={demoSessionStarted || activeWorkout !== null} activeSession={activeWorkout} workoutName={workoutName} currentExercise={currentWorkoutExercise} exerciseDetails={workoutExerciseDetails} nextExercise={workoutExercises[currentExerciseIndex + 1] ?? null} currentExerciseIndex={currentExerciseIndex} totalExercises={workoutExercises.length} exerciseSets={exerciseSets} completedSets={completedSets} message={workoutMessage} onStart={() => void startWorkout()} onCompleteSet={completeSet} onNextExercise={goToNextExercise} onFinish={() => void finishWorkout()} /> : null}{activeTab === "progress" ? <ProgressView sessions={localSessions} /> : null}{activeTab === "exercises" ? <ExercisesView query={exerciseQuery} onQueryChange={setExerciseQuery} exercises={filteredExercises} loading={catalogLoading} message={catalogMessage} source={catalogExercises === null ? "demo" : "api"} /> : null}</main><nav className="bottom-nav" aria-label="Navegación principal">{tabs.map((tab) => <button className={`nav-item ${activeTab === tab.id ? "is-active" : ""} ${tab.id === "train" ? "train-nav-item" : ""}`} type="button" key={tab.id} onClick={() => setActiveTab(tab.id)}><span className={tab.id === "train" ? "train-nav-icon" : "nav-icon"}><Icon name={tab.icon} size={tab.id === "train" ? 21 : 19} /></span><span>{tab.label}</span></button>)}</nav>{profileOpen ? <ProfileDrawer session={session} serverUser={serverUser} authLoading={authLoading} authBusy={authBusy} authMessage={authMessage} serverIdentityLoading={serverIdentityLoading} serverIdentityMessage={serverIdentityMessage} email={email} password={password} supabaseConfigured={supabase !== null} onClose={() => setProfileOpen(false)} onSubmit={(event) => void handleSubmit(event)} onEmailChange={setEmail} onPasswordChange={setPassword} onSignOut={() => void handleSignOut()} /> : null}{selectedRoutine ? <RoutineDetail routine={selectedRoutine} catalogExercises={catalogExercises ?? []} onClose={() => setSelectedRoutine(null)} onStart={() => { setSelectedRoutine(null); void startWorkout(selectedRoutine); }} onEdit={selectedRoutineForEdit === undefined || selectedRoutineForEdit === null ? undefined : () => { setSelectedRoutine(null); openRoutineEditor(selectedRoutineForEdit); }} /> : null}{routineEditorOpen ? <RoutineEditor routine={editingRoutine} exercises={catalogExercises ?? []} saving={routineSaving} online={online} onClose={() => setRoutineEditorOpen(false)} onSave={(name, description, exerciseIds) => void saveRoutine(name, description, exerciseIds)} /> : null}{recoveryOpen ? <SyncRecoveryDetails operations={recoveryOperations} onClose={() => setRecoveryOpen(false)} /> : null}</div>;
+  return <div className="app-shell"><div className="ambient ambient-one" aria-hidden="true" /><div className="ambient ambient-two" aria-hidden="true" /><header className="topbar"><div className="brand-mark" aria-label="FORMA"><span className="brand-symbol">F</span><span>FORMA</span></div><div className="topbar-actions"><span className={`sync-pill ${online ? "is-online" : "is-offline"}`}><span className="sync-dot" aria-hidden="true" />{online ? "Online" : "Offline"}</span><button className="profile-button" type="button" aria-label="Abrir perfil" onClick={() => setProfileOpen(true)}>{session?.user.email?.slice(0, 1).toUpperCase() ?? "N"}</button></div></header><main className="app-content">{recoveryOperations.length > 0 ? <SyncRecoveryBanner count={recoveryOperations.length} onOpen={() => setRecoveryOpen(true)} /> : null}{activeTab === "home" ? <HomeView onStart={() => void startWorkout({ api: null, ...demoRoutines[0]! })} onCreate={() => openRoutineEditor()} onOpenRoutine={openRoutine} /> : null}{activeTab === "routines" ? <RoutinesView routines={routines} loading={routinesLoading} message={routineMessage} catalogExercises={catalogExercises ?? []} onCreate={() => openRoutineEditor()} onEdit={openRoutineEditor} onOpenRoutine={openRoutine} /> : null}{activeTab === "train" ? <TrainView key={activeWorkout?.id ?? (demoSessionStarted ? "demo-activa" : "sin-sesion")} started={demoSessionStarted || activeWorkout !== null} activeSession={activeWorkout} workoutName={workoutName} currentExercise={currentWorkoutExercise} exerciseDetails={workoutExerciseDetails} nextExercise={workoutExercises[currentExerciseIndex + 1] ?? null} currentExerciseIndex={currentExerciseIndex} totalExercises={workoutExercises.length} exerciseSets={exerciseSets} completedSets={completedSets} message={workoutMessage} onStart={() => void startWorkout()} onCompleteSet={completeSet} onNextExercise={goToNextExercise} onFinish={() => void finishWorkout()} /> : null}{activeTab === "progress" ? <ProgressView sessions={localSessions} /> : null}{activeTab === "exercises" ? <ExercisesView query={exerciseQuery} onQueryChange={setExerciseQuery} exercises={filteredExercises} loading={catalogLoading} message={catalogMessage} source={catalogExercises === null ? "demo" : "api"} /> : null}</main><nav className="bottom-nav" aria-label="Navegación principal">{tabs.map((tab) => <button className={`nav-item ${activeTab === tab.id ? "is-active" : ""} ${tab.id === "train" ? "train-nav-item" : ""}`} type="button" key={tab.id} onClick={() => setActiveTab(tab.id)}><span className={tab.id === "train" ? "train-nav-icon" : "nav-icon"}><Icon name={tab.icon} size={tab.id === "train" ? 21 : 19} /></span><span>{tab.label}</span></button>)}</nav>{profileOpen ? <ProfileDrawer session={session} serverUser={serverUser} authLoading={authLoading} authBusy={authBusy} authMessage={authMessage} serverIdentityLoading={serverIdentityLoading} serverIdentityMessage={serverIdentityMessage} email={email} password={password} supabaseConfigured={supabase !== null} onClose={() => setProfileOpen(false)} onSubmit={(event) => void handleSubmit(event)} onEmailChange={setEmail} onPasswordChange={setPassword} onSignOut={() => void handleSignOut()} /> : null}{selectedRoutine ? <RoutineDetail routine={selectedRoutine} catalogExercises={catalogExercises ?? []} onClose={() => setSelectedRoutine(null)} onStart={() => { setSelectedRoutine(null); void startWorkout(selectedRoutine); }} onEdit={selectedRoutineForEdit === undefined || selectedRoutineForEdit === null ? undefined : () => { setSelectedRoutine(null); openRoutineEditor(selectedRoutineForEdit); }} /> : null}{routineEditorOpen ? <RoutineEditor routine={editingRoutine} exercises={catalogExercises ?? []} saving={routineSaving} online={online} onClose={() => setRoutineEditorOpen(false)} onSave={(name, description, exerciseIds) => void saveRoutine(name, description, exerciseIds)} /> : null}{recoveryOpen ? <SyncRecoveryDetails operations={recoveryOperations} onClose={() => setRecoveryOpen(false)} /> : null}</div>;
 }
 
 function HomeView({ onStart, onCreate, onOpenRoutine }: { onStart: () => void; onCreate: () => void; onOpenRoutine: (routine: RoutineSummary) => void }): ReactElement {
@@ -353,20 +353,51 @@ function RoutinesView({ routines, loading, message, catalogExercises, onCreate, 
 function TrainView({ started, activeSession, workoutName, currentExercise, exerciseDetails, nextExercise, currentExerciseIndex, totalExercises, exerciseSets, completedSets, message, onStart, onCompleteSet, onNextExercise, onFinish }: { started: boolean; activeSession: WorkoutSession | null; workoutName: string; currentExercise: WorkoutExercise; exerciseDetails: ExerciseCard | undefined; nextExercise: WorkoutExercise | null; currentExerciseIndex: number; totalExercises: number; exerciseSets: WorkoutSetInput[]; completedSets: number; message: string | null; onStart: () => void; onCompleteSet: (loadKg: number, repetitions: number) => Promise<boolean>; onNextExercise: () => void; onFinish: () => void }): ReactElement {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const workoutVideoRef = useRef<HTMLVideoElement>(null);
-  const [restSeconds, setRestSeconds] = useState(90);
-  const [restRunning, setRestRunning] = useState(false);
+  const [restDuration, setRestDuration] = useState(120);
+  const [restSeconds, setRestSeconds] = useState(120);
+  const [restDeadline, setRestDeadline] = useState<number | null>(null);
+  const restRunning = restDeadline !== null;
   const [loadInput, setLoadInput] = useState("");
   const [repetitionsInput, setRepetitionsInput] = useState("");
   const [setPending, setSetPending] = useState(false);
   const [inputError, setInputError] = useState<string | null>(null);
   useEffect(() => {
-    if (!restRunning || restSeconds <= 0) {
-      if (restSeconds === 0) setRestRunning(false);
-      return undefined;
+    if (restDeadline === null) return;
+    const deadline = restDeadline;
+    function refreshRest() {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setRestSeconds(remaining);
+      if (remaining === 0) setRestDeadline(null);
     }
-    const timer = window.setInterval(() => setRestSeconds((value) => Math.max(value - 1, 0)), 1000);
-    return () => window.clearInterval(timer);
-  }, [restRunning, restSeconds]);
+    const timer = window.setInterval(refreshRest, 200);
+    document.addEventListener("visibilitychange", refreshRest);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshRest);
+    };
+  }, [restDeadline]);
+
+  function startRest(seconds: number): void {
+    setRestSeconds(seconds);
+    setRestDeadline(Date.now() + seconds * 1000);
+  }
+
+  function changeRest(minutes: number): void {
+    const seconds = minutes * 60;
+    setRestDuration(seconds);
+    if (restRunning) startRest(seconds);
+    else setRestSeconds(seconds);
+  }
+
+  function toggleRest(): void {
+    if (restDeadline === null) {
+      startRest(restSeconds || restDuration);
+    } else {
+      setRestSeconds(Math.max(0, Math.ceil((restDeadline - Date.now()) / 1000)));
+      setRestDeadline(null);
+    }
+  }
+
   const actual = activeSession !== null;
   useEffect(() => {
     setLoadInput("");
@@ -386,18 +417,16 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
     setSetPending(true);
     try {
       if (await onCompleteSet(loadKg, repetitions)) {
-        setRestSeconds(90);
-        setRestRunning(true);
+        startRest(restDuration);
       }
     } finally {
       setSetPending(false);
     }
   }
   if (!started) return <div className="screen-stack"><section className="screen-header-row"><div><p className="eyebrow">MODO ENTRENAMIENTO</p><h1>Entrenar</h1><p className="screen-subtitle">Tu sesión queda guardada localmente mientras entrenás.</p></div><span className="offline-badge"><Icon name="bolt" size={14} /> Offline ready</span></section>{message ? <p className="status-line">{message}</p> : null}<section className="empty-workout-card"><div className="empty-icon"><Icon name="train" size={28} /></div><p className="eyebrow">LISTO PARA EMPEZAR</p><h2>Tu próxima sesión está acá.</h2><p>Iniciá una rutina y registrá cada serie sin depender de la conexión.</p><button className="primary-button" type="button" onClick={onStart}>Comenzar Piernas <Icon name="arrow" size={17} /></button></section><section className="training-principles"><span><Icon name="bolt" size={16} /><b>Offline first</b><small>Guardado inmediato</small></span><span><Icon name="clock" size={16} /><b>Descanso</b><small>Controlá tu ritmo</small></span><span><Icon name="check" size={16} /><b>Progreso</b><small>Serie por serie</small></span></section></div>;
-  const formattedRest = `${String(Math.floor(restSeconds / 60)).padStart(2, "0")}:${String(restSeconds % 60).padStart(2, "0")}`;
-  return <div className="screen-stack workout-screen"><section className="active-workout-header"><div><span className="live-label"><span className="live-dot" /> SESIÓN ACTIVA</span><h1>{workoutName.split(" · ")[0]} <span>{workoutName.includes(" · ") ? `· ${workoutName.split(" · ").slice(1).join(" · ")}` : ""}</span></h1><p className="screen-subtitle">{actual ? "Guardado local" : "Sesión demo"} <span className="bullet">•</span> {completedSets} {completedSets === 1 ? "serie" : "series"}</p></div><button className="round-action" type="button" aria-label="Más opciones">•••</button></section>{message ? <p className="status-line">{message}</p> : null}<div className="workout-progress"><span style={{ width: `${Math.min(((currentExerciseIndex + 1) / totalExercises) * 100, 100)}%` }} /></div><section className="exercise-log-card">{exerciseDetails && hasSquatPreview(exerciseDetails) ?
+  return <div className="screen-stack workout-screen"><section className="active-workout-header"><div><span className="live-label"><span className="live-dot" /> SESIÓN ACTIVA</span><h1>{workoutName.split(" · ")[0]} <span>{workoutName.includes(" · ") ? `· ${workoutName.split(" · ").slice(1).join(" · ")}` : ""}</span></h1><p className="screen-subtitle">{actual ? "Guardado local" : "Sesión demo"} <span className="bullet">•</span> {completedSets} {completedSets === 1 ? "serie" : "series"}</p></div><WorkoutStopwatch /></section>{message ? <p className="status-line">{message}</p> : null}<div className="workout-progress"><span style={{ width: `${Math.min(((currentExerciseIndex + 1) / totalExercises) * 100, 100)}%` }} /></div><section className="exercise-log-card">{exerciseDetails && hasSquatPreview(exerciseDetails) ?
     <SquatRepetition key={currentExercise.id} videoRef={workoutVideoRef} compact /> :
-    <div className={`exercise-visual exercise-visual-${currentExercise.color}`}><div className="exercise-visual-orbit" aria-hidden="true" /><span className="exercise-visual-kicker">EJERCICIO {String(currentExerciseIndex + 1).padStart(2, "0")} / {String(totalExercises).padStart(2, "0")}</span><Icon name="train" size={36} /><span className="exercise-visual-muscle">{currentExercise.muscle}</span></div>}<div className="exercise-log-heading"><div><span className="exercise-index">{String(currentExerciseIndex + 1).padStart(2, "0")}</span><div><h2>{currentExercise.name}</h2><p>{actual ? "Catálogo oficial" : currentExercise.muscle}</p></div></div><span className="exercise-status"><Icon name="check" size={14} /> {exerciseSets.length}</span></div>{exerciseDetails && <WorkoutTechnique key={exerciseDetails.id} education={exerciseDetails.education} onOpen={() => {
+    <div className={`exercise-visual exercise-visual-${currentExercise.color}`}><div className="exercise-visual-orbit" aria-hidden="true" /><span className="exercise-visual-kicker">EJERCICIO {String(currentExerciseIndex + 1).padStart(2, "0")} / {String(totalExercises).padStart(2, "0")}</span><Icon name="train" size={36} /><span className="exercise-visual-muscle">{currentExercise.muscle}</span></div>}<div className="exercise-log-heading"><div><span className="exercise-index">{String(currentExerciseIndex + 1).padStart(2, "0")}</span><div><h2>{currentExercise.name}</h2><p>{actual ? "Catálogo oficial" : currentExercise.muscle}</p></div></div><span className="exercise-status">{exerciseSets.length} {exerciseSets.length === 1 ? "serie" : "series"}</span></div>{exerciseDetails && <WorkoutTechnique key={exerciseDetails.id} education={exerciseDetails.education} onOpen={() => {
       workoutVideoRef.current?.pause();
       setDetailsOpen(true);
     }} />}{exerciseDetails && detailsOpen && <ExerciseDetails exercise={exerciseDetails} onClose={() => setDetailsOpen(false)} />}<form className="set-entry" onSubmit={(event) => { event.preventDefault(); void saveCurrentSet(); }}>
@@ -406,18 +435,86 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
       <button className="primary-button set-save-button" type="submit" disabled={setPending}><Icon name="check" size={16} /> {setPending ? "Guardando…" : "Guardar serie"}</button>
     </form>
     {inputError && <p className="form-error" role="alert">{inputError}</p>}
+    <WorkoutRest seconds={restSeconds} running={restRunning} minutes={restDuration / 60} onChange={changeRest} onToggle={toggleRest} />
     {exerciseSets.length > 0 && <>
-      <div className="set-header"><span>Serie</span><span>Kg</span><span>Reps</span><span /></div>
-      {exerciseSets.map((set, index) => <div className="set-row is-complete" key={index}>
-        <span className="set-number">{index + 1}</span><span>{set.loadKg}</span><span>{set.repetitions}</span><Icon name="check" size={15} />
+      <div className="set-header"><span>Serie</span><span>Kg</span><span>Reps</span></div>
+      {exerciseSets.map((set, index) => <div className="set-row" key={index}>
+        <span className="set-number">{index + 1}</span><span>{set.loadKg}</span><span>{set.repetitions}</span>
       </div>)}
     </>}
-    <button className="secondary-button finish-button" type="button" disabled={setPending} onClick={onFinish}>Finalizar sesión</button></section><section className={`rest-card ${restRunning ? "is-running" : ""}`}><div><span className="card-kicker">DESCANSO</span><strong>{formattedRest}</strong><small>{restRunning ? "Recuperando para la próxima serie" : "Listo cuando termines la serie"}</small></div><button className="rest-toggle" type="button" onClick={() => { if (restSeconds === 0) setRestSeconds(90); setRestRunning((value) => !value); }}>{restRunning ? "Pausar" : "Iniciar"}</button></section>{currentExerciseIndex < totalExercises - 1 && nextExercise !== null ? <button className="next-exercise-card" type="button" disabled={setPending} onClick={() => {
+    <button className="secondary-button finish-button" type="button" disabled={setPending} onClick={onFinish}>Finalizar sesión</button></section>{currentExerciseIndex < totalExercises - 1 && nextExercise !== null ? <button className="next-exercise-card" type="button" disabled={setPending} onClick={() => {
       setLoadInput("");
       setRepetitionsInput("");
       setInputError(null);
       onNextExercise();
     }}><span className="card-kicker">SIGUIENTE EJERCICIO</span><div><h2>{nextExercise.name}</h2><p>{nextExercise.muscle} · avanzar cuando termines tus series</p></div><Icon name="chevron" size={18} /></button> : <section className="next-exercise-card is-complete"><span className="card-kicker">PLAN COMPLETO</span><div><h2>Último ejercicio de la sesión</h2><p>Revisá tus series y finalizá cuando estés listo.</p></div><Icon name="check" size={18} /></section>}</div>;
+}
+
+function formatWorkoutTime(seconds: number): string {
+  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function WorkoutRest({ seconds, running, minutes, onChange, onToggle }: {
+  seconds: number; running: boolean; minutes: number; onChange: (minutes: number) => void; onToggle: () => void;
+}): ReactElement {
+  const [custom, setCustom] = useState("");
+  return <section className={`rest-card ${running ? "is-running" : ""}`} aria-label="Descanso entre series">
+    <div className="rest-heading">
+      <div><span className="card-kicker">DESCANSO</span><strong role="timer">{formatWorkoutTime(seconds)}</strong></div>
+      <button className="rest-toggle" type="button" onClick={onToggle}>{running ? "Pausar descanso" : "Iniciar descanso"}</button>
+    </div>
+    <div className="rest-presets" role="group" aria-label="Duración del descanso">
+      {[2, 3].map((value) => <button key={value} className="rest-toggle" type="button" aria-pressed={minutes === value} onClick={() => onChange(value)}>{value} min</button>)}
+    </div>
+    <form className="rest-custom" onSubmit={(event) => {
+      event.preventDefault();
+      const value = Number(custom);
+      if (Number.isInteger(value) && value >= 1 && value <= 60) onChange(value);
+    }}>
+      <label>Minutos personalizados<input type="number" inputMode="numeric" min="1" max="60" step="1" required value={custom} onChange={(event) => setCustom(event.target.value)} /></label>
+      <button className="rest-toggle" type="submit">Aplicar</button>
+    </form>
+  </section>;
+}
+
+function WorkoutStopwatch(): ReactElement {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [clock, setClock] = useState(0);
+
+  useEffect(() => {
+    if (startedAt === null) return;
+    const update = () => setClock(Date.now());
+    const timer = window.setInterval(update, 200);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, [startedAt]);
+
+  const seconds = Math.floor((elapsed + (startedAt === null ? 0 : Math.max(0, clock - startedAt))) / 1000);
+  return <>
+    <button className="round-action stopwatch-trigger" type="button" aria-label="Abrir cronómetro" aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}><Icon name="clock" size={21} /></button>
+    <dialog ref={dialog} className="workout-stopwatch" aria-label="Cronómetro">
+      <div className="stopwatch-heading"><h2>Cronómetro</h2><button className="close-button" type="button" aria-label="Cerrar cronómetro" onClick={() => dialog.current?.close()}>×</button></div>
+      <strong role="timer">{formatWorkoutTime(seconds)}</strong>
+      <div className="stopwatch-actions">
+        <button className="primary-button" type="button" onClick={() => {
+          const now = Date.now();
+          if (startedAt === null) {
+            setClock(now);
+            setStartedAt(now);
+          } else {
+            setElapsed(elapsed + Math.max(0, now - startedAt));
+            setStartedAt(null);
+          }
+        }}>{startedAt === null ? elapsed > 0 ? "Continuar" : "Iniciar" : "Pausar"}</button>
+        <button className="secondary-button" type="button" onClick={() => { setStartedAt(null); setElapsed(0); }}>Reiniciar</button>
+      </div>
+    </dialog>
+  </>;
 }
 
 function RoutineDetail({ routine, catalogExercises, onClose, onStart, onEdit }: { routine: RoutineSummary; catalogExercises: ApiExercise[]; onClose: () => void; onStart: () => void; onEdit: (() => void) | undefined }): ReactElement {

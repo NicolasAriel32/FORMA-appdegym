@@ -57,6 +57,7 @@ function demonstrationFor(exercise: Pick<ExerciseCard, "id" | "name">): Demonstr
   if (exercise.id === "demo-squat" || name === "sentadilla trasera con barra" || name === "sentadilla con barra") return "squat";
   if (exercise.id === "demo-bench" || /^press (?:de |en )?banca(?: plano)?(?: con barra)?$/.test(name)) return "bench";
   if (exercise.id === "demo-rdl" || /^peso muerto rumano(?: con barra)?$/.test(name)) return "deadlift";
+  if (exercise.id === "demo-row" || /^remo (?:inclinado )?con barra$/.test(name)) return "row";
 }
 
 type RoutineAccent = "violet" | "blue" | "green" | "orange";

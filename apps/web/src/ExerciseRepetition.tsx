@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ReactElement, RefObject } from "react";
 
-export type Demonstration = "squat" | "bench" | "deadlift";
+export type Demonstration = "squat" | "bench" | "deadlift" | "row";
 
 const media = {
   squat: {
@@ -19,6 +19,12 @@ const media = {
   deadlift: {
     folder: "/media/exercises/romanian-deadlift-barbell",
     label: "Peso muerto rumano con barra en vista de tres cuartos",
+    duration: 4.2,
+    equipment: "Carga de referencia · 2 discos de 20 kg por lado",
+  },
+  row: {
+    folder: "/media/exercises/bent-over-barbell-row",
+    label: "Remo con barra en vista de tres cuartos",
     duration: 4.2,
     equipment: "Carga de referencia · 2 discos de 20 kg por lado",
   },

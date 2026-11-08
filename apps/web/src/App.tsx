@@ -21,7 +21,12 @@ import {
   listOutboxOperations,
   listSessionsByOwner,
   openLocalDatabase,
-  savePublishedExercises,
+  getWorkoutPlan,
+  readPublishedCatalog,
+  readCachedRoutines,
+  saveCachedRoutines,
+  savePublishedCatalog,
+  type WorkoutPlanSnapshot,
   type LocalDatabase,
 } from "./platform/local-db.js";
 import { drainOutbox, pullSyncChanges } from "./workout/outbox-sync-service.js";
@@ -75,7 +80,7 @@ type RoutineSummary = {
   note: string;
 };
 type WorkoutSetInput = { loadKg: number; repetitions: number };
-type WorkoutExercise = { id: string; name: string; muscle: string; color: string; targetSets?: number };
+type WorkoutExercise = WorkoutPlanSnapshot["exercises"][number];
 const defaultWorkoutSets = 3;
 
 const tabs: Array<{ id: AppTab; label: string; icon: IconName }> = [
@@ -132,7 +137,8 @@ export default function App(): ReactElement {
   const [supabase] = useState(() => createConfiguredBrowserSupabaseClient());
   const [apiBaseUrl] = useState(() => createConfiguredBrowserApiBaseUrl());
   const [session, setSession] = useState<Session | null>(null);
-  const [serverUser, setServerUser] = useState<ApiUser | null>(null);
+  const [verifiedIdentity, setVerifiedIdentity] = useState<{ subject: string; user: ApiUser } | null>(null);
+  const serverUser = verifiedIdentity?.subject === session?.user.id ? verifiedIdentity?.user ?? null : null;
   const [authLoading, setAuthLoading] = useState(true);
   const [authBusy, setAuthBusy] = useState(false);
   const [email, setEmail] = useState("");
@@ -140,7 +146,8 @@ export default function App(): ReactElement {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [serverIdentityLoading, setServerIdentityLoading] = useState(false);
   const [serverIdentityMessage, setServerIdentityMessage] = useState<string | null>(null);
-  const [localDatabase, setLocalDatabase] = useState<LocalDatabase | null>(null);
+  const [ownerDatabase, setOwnerDatabase] = useState<{ ownerId: string; database: LocalDatabase } | null>(null);
+  const localDatabase = ownerDatabase?.ownerId === serverUser?.id ? ownerDatabase?.database ?? null : null;
   const [localSessions, setLocalSessions] = useState<WorkoutSession[] | null>(null);
   const [recoveryOperations, setRecoveryOperations] = useState<SyncOperation[]>([]);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
@@ -175,23 +182,37 @@ export default function App(): ReactElement {
   }, [supabase]);
 
   useEffect(() => {
-    if (session === null || apiBaseUrl === undefined) { setServerUser(null); setServerIdentityLoading(false); setServerIdentityMessage(null); return; }
+    if (session === null || apiBaseUrl === undefined) { setVerifiedIdentity(null); setServerIdentityLoading(false); setServerIdentityMessage(null); return; }
     let active = true; setServerIdentityLoading(true); setServerIdentityMessage(null);
-    void fetchCurrentUser({ apiBaseUrl, accessToken: session.access_token }).then((user) => { if (active) setServerUser(user); }).catch((error) => { if (active) { setServerUser(null); setServerIdentityMessage(toApiMessage(error)); } }).finally(() => { if (active) setServerIdentityLoading(false); });
+    void fetchCurrentUser({ apiBaseUrl, accessToken: session.access_token }).then((user) => { if (active) setVerifiedIdentity({ subject: session.user.id, user }); }).catch((error) => { if (active) { setVerifiedIdentity(null); setServerIdentityMessage(toApiMessage(error)); } }).finally(() => { if (active) setServerIdentityLoading(false); });
     return () => { active = false; };
   }, [apiBaseUrl, session]);
 
   useEffect(() => {
-    if (serverUser === null) { setLocalDatabase(null); setLocalSessions(null); setRecoveryOperations([]); setActiveWorkout(null); return; }
+    if (serverUser === null) { setOwnerDatabase(null); setLocalSessions(null); setRecoveryOperations([]); setActiveWorkout(null); return; }
     let active = true;
+    let openedDatabase: LocalDatabase | undefined;
     void openLocalDatabase(indexedDB, `forma-${serverUser.id}`).then(async (database) => {
+      openedDatabase = database;
       const sessions = await listSessionsByOwner(database, serverUser.id);
       const outbox = await listOutboxOperations(database);
       const current = sessions.find((candidate) => candidate.status === "in_progress" || candidate.status === "paused");
+      const plan = current ? await getWorkoutPlan(database, current.id) : undefined;
       if (!active) { database.close(); return; }
-      setLocalDatabase(database); setLocalSessions(sessions); setRecoveryOperations(outbox.filter((operation) => operation.state === "recovery_required" || operation.state === "blocked")); if (current !== undefined) setActiveWorkout(current);
+      setOwnerDatabase({ ownerId: serverUser.id, database }); setLocalSessions(sessions); setRecoveryOperations(outbox.filter((operation) => operation.state === "recovery_required" || operation.state === "blocked"));
+      setActiveWorkout(current ?? null);
+      if (current !== undefined) {
+        // Older sessions have no saved plan. Restore only exercises evidenced by stored sets.
+        const exercises = plan?.exercises ?? [...new Set(current.sets.map((set) => set.exerciseId))].map((id) => ({
+          id, name: "Ejercicio de la sesión", muscle: "", color: "violet",
+        }));
+        setWorkoutExercises(exercises);
+        setWorkoutName(plan?.name ?? "Sesión recuperada");
+        const latestExercise = current.sets.at(-1)?.exerciseId;
+        setCurrentExerciseIndex(Math.max(0, exercises.findIndex((exercise) => exercise.id === latestExercise)));
+      }
     }).catch(() => { if (active) setWorkoutMessage("No se pudo abrir el almacenamiento local seguro."); });
-    return () => { active = false; };
+    return () => { active = false; openedDatabase?.close(); };
   }, [serverUser]);
 
   useEffect(() => {
@@ -209,18 +230,54 @@ export default function App(): ReactElement {
   }, [apiBaseUrl, localDatabase, online, serverUser, session]);
 
   useEffect(() => {
-    if (session === null || apiBaseUrl === undefined) { setCatalogExercises(null); setCatalogMessage(null); return; }
-    let active = true; setCatalogLoading(true); setCatalogMessage(null);
-    void fetchPublishedExercises({ apiBaseUrl, accessToken: session.access_token }).then(async (exercises) => { if (!active) return; setCatalogExercises(exercises); if (localDatabase !== null) await savePublishedExercises(localDatabase, exercises); }).catch((error) => { if (active) { setCatalogExercises([]); setCatalogMessage(toApiMessage(error)); } }).finally(() => { if (active) setCatalogLoading(false); });
+    if (session === null || apiBaseUrl === undefined || localDatabase === null) {
+      setCatalogExercises(null); setCatalogMessage(null); setCatalogLoading(false); return;
+    }
+    let active = true;
+    setCatalogLoading(true); setCatalogMessage(null);
+    void (async () => {
+      try {
+        const cached = await readPublishedCatalog(localDatabase);
+        if (!active) return;
+        setCatalogExercises(cached);
+        if (!online) return;
+        const exercises = await fetchPublishedExercises({ apiBaseUrl, accessToken: session.access_token });
+        if (!active) return;
+        setCatalogExercises(exercises);
+        await savePublishedCatalog(localDatabase, exercises);
+      } catch (error) {
+        if (active) setCatalogMessage(toApiMessage(error));
+      } finally {
+        if (active) setCatalogLoading(false);
+      }
+    })();
     return () => { active = false; };
-  }, [apiBaseUrl, localDatabase, session]);
+  }, [apiBaseUrl, localDatabase, online, session]);
 
   useEffect(() => {
-    if (session === null || apiBaseUrl === undefined) { setRoutines(null); return; }
-    let active = true; setRoutinesLoading(true);
-    void fetchRoutines({ apiBaseUrl, accessToken: session.access_token }).then((loaded) => { if (active) setRoutines(loaded); }).catch((error) => { if (active) setRoutineMessage(toApiMessage(error)); }).finally(() => { if (active) setRoutinesLoading(false); });
+    if (session === null || apiBaseUrl === undefined || localDatabase === null) {
+      setRoutines(null); setRoutinesLoading(false); return;
+    }
+    let active = true;
+    setRoutinesLoading(true);
+    void (async () => {
+      try {
+        const cached = await readCachedRoutines(localDatabase);
+        if (!active) return;
+        setRoutines(cached);
+        if (!online) return;
+        const loaded = await fetchRoutines({ apiBaseUrl, accessToken: session.access_token });
+        if (!active) return;
+        setRoutines(loaded);
+        await saveCachedRoutines(localDatabase, loaded);
+      } catch (error) {
+        if (active) setRoutineMessage(toApiMessage(error));
+      } finally {
+        if (active) setRoutinesLoading(false);
+      }
+    })();
     return () => { active = false; };
-  }, [apiBaseUrl, session]);
+  }, [apiBaseUrl, localDatabase, online, session]);
 
   const displayExercises = useMemo<ExerciseCard[]>(() => {
     if (catalogExercises === null) return demoExercises;
@@ -260,6 +317,10 @@ export default function App(): ReactElement {
       setWorkoutMessage("Terminá la sesión activa para empezar otro plan.");
       return;
     }
+    if (!routine?.demoPlan && session && apiBaseUrl && !realWorkoutEnabled) {
+      setWorkoutMessage("Esperá a que FORMA valide tu cuenta y cargue el almacenamiento local.");
+      return;
+    }
     const plannedExercises = buildWorkoutExercises(routine, catalogExercises);
     if (routine?.api !== null && routine?.api !== undefined && plannedExercises.length === 0) {
       setWorkoutMessage("No se pudo cargar la estructura oficial de esta rutina.");
@@ -275,7 +336,7 @@ export default function App(): ReactElement {
     if (routine?.demoPlan || !realWorkoutEnabled || serverUser === null || localDatabase === null || clientInstanceId === null) { setDemoSetsByExercise({}); setDemoSessionStarted(true); return; }
     try {
       const timestamp = new Date().toISOString();
-      const result = await startOfflineWorkoutSession({ database: localDatabase, ownerId: serverUser.id as UserId, sessionId: crypto.randomUUID() as SessionId, operationId: crypto.randomUUID(), clientInstanceId, createdAt: timestamp, startedAt: timestamp });
+      const result = await startOfflineWorkoutSession({ database: localDatabase, ownerId: serverUser.id as UserId, sessionId: crypto.randomUUID() as SessionId, operationId: crypto.randomUUID(), clientInstanceId, createdAt: timestamp, startedAt: timestamp, plan: { name: routine?.name ?? demoRoutines[0]!.name, exercises: plannedExercises } });
       setActiveWorkout(result.session); setWorkoutMessage("Sesión guardada localmente. Quedará pendiente de sincronización.");
       await refreshLocalSessions();
       await refreshSyncAttention();
@@ -299,7 +360,7 @@ export default function App(): ReactElement {
       return true;
     }
     const exercise = catalogExercises?.find((candidate) => candidate.id === currentExercise?.id && candidate.status === "published");
-    if (exercise === undefined) { setWorkoutMessage("El catálogo oficial todavía no está disponible para registrar la serie."); return false; }
+    if (exercise === undefined) { setWorkoutMessage("Este ejercicio no figura en el catálogo publicado. Podés conservar sus series y avanzar al siguiente."); return false; }
     savingSet.current = true;
     try {
       const timestamp = new Date().toISOString();
@@ -360,7 +421,16 @@ export default function App(): ReactElement {
     try {
       const input = { name, description, exerciseIds };
       const saved = editingRoutine === null ? await createRoutine({ apiBaseUrl, accessToken: session.access_token, input }) : await updateRoutine({ apiBaseUrl, accessToken: session.access_token, routineId: editingRoutine.id, input });
-      setRoutines((current) => current === null ? [saved] : editingRoutine === null ? [...current, saved] : current.map((routine) => routine.id === saved.id ? saved : routine)); setRoutineEditorOpen(false);
+      const current = routines ?? [];
+      const updated = current.some((routine) => routine.id === saved.id)
+        ? current.map((routine) => routine.id === saved.id ? saved : routine)
+        : [...current, saved];
+      setRoutines(updated);
+      setRoutineEditorOpen(false);
+      if (localDatabase) {
+        await saveCachedRoutines(localDatabase, updated).catch(() =>
+          setRoutineMessage("La rutina se guardó en tu cuenta. No se pudo actualizar la copia sin conexión."));
+      }
     } catch (error) { setRoutineMessage(toApiMessage(error)); } finally { setRoutineSaving(false); }
   }
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> { event.preventDefault(); setAuthMessage(null); if (supabase === null) { setAuthMessage("La autenticación todavía no está configurada en este entorno."); return; } if (!online) { setAuthMessage("Necesitás conexión para iniciar sesión."); return; } setAuthBusy(true); try { const next = await signInWithPassword(supabase, email, password); setSession(next); setPassword(""); } catch (error) { setAuthMessage(toAuthMessage(error)); } finally { setAuthBusy(false); } }
@@ -368,7 +438,8 @@ export default function App(): ReactElement {
 
   const openRoutine = (routine: RoutineSummary): void => setSelectedRoutine(routine);
   const selectedRoutineForEdit = selectedRoutine?.api;
-  const currentWorkoutExercise = workoutExercises[currentExerciseIndex] ?? workoutExercises[0] ?? demoWorkoutExercises[0]!;
+  const workoutExercise = workoutExercises[currentExerciseIndex];
+  const currentWorkoutExercise = workoutExercise ?? { id: "", name: "Sin ejercicios recuperables", muscle: "", color: "violet" };
   const workoutExerciseDetails = (activeWorkout ? displayExercises : demoExercises)
     .find((exercise) => exercise.id === currentWorkoutExercise.id);
   const exerciseSets = activeWorkout
@@ -455,7 +526,7 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
   }
 
   const actual = activeSession !== null;
-  const targetSets = currentExercise.targetSets ?? defaultWorkoutSets;
+  const targetSets = currentExercise.id ? currentExercise.targetSets ?? defaultWorkoutSets : 0;
   const rowCount = Math.max(targetSets, exerciseSets.length, minimumSetRows);
 
   async function saveCurrentSet(form: HTMLFormElement, index: number): Promise<void> {
@@ -480,7 +551,7 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
   }
   const demonstration = demonstrationFor(currentExercise);
   if (!started) return <div className="screen-stack"><section className="screen-header-row"><div><p className="eyebrow">MODO ENTRENAMIENTO</p><h1>Entrenar</h1><p className="screen-subtitle">Tu sesión queda guardada localmente mientras entrenás.</p></div><span className="offline-badge"><Icon name="bolt" size={14} /> Offline ready</span></section>{message ? <p className="status-line">{message}</p> : null}<section className="empty-workout-card"><div className="empty-icon"><Icon name="train" size={28} /></div><p className="eyebrow">LISTO PARA EMPEZAR</p><h2>Tu próxima sesión está acá.</h2><p>Iniciá una rutina y registrá cada serie sin depender de la conexión.</p><button className="primary-button" type="button" onClick={onStart}>Comenzar Piernas <Icon name="arrow" size={17} /></button></section><section className="training-principles"><span><Icon name="bolt" size={16} /><b>Offline first</b><small>Guardado inmediato</small></span><span><Icon name="clock" size={16} /><b>Descanso</b><small>Controlá tu ritmo</small></span><span><Icon name="check" size={16} /><b>Progreso</b><small>Serie por serie</small></span></section></div>;
-  return <div className="screen-stack workout-screen"><section className="active-workout-header"><div><span className="live-label"><span className="live-dot" /> SESIÓN ACTIVA</span><h1>{workoutName.split(" · ")[0]} <span>{workoutName.includes(" · ") ? `· ${workoutName.split(" · ").slice(1).join(" · ")}` : ""}</span></h1><p className="screen-subtitle">{actual ? "Guardado local" : "Sesión demo"} <span className="bullet">•</span> {completedSets} {completedSets === 1 ? "serie" : "series"}</p></div><WorkoutStopwatch /></section>{message ? <p className="status-line">{message}</p> : null}<div className="workout-progress"><span style={{ width: `${Math.min(((currentExerciseIndex + 1) / totalExercises) * 100, 100)}%` }} /></div><section className="exercise-log-card">{demonstration ?
+  return <div className="screen-stack workout-screen"><section className="active-workout-header"><div><span className="live-label"><span className="live-dot" /> SESIÓN ACTIVA</span><h1>{workoutName.split(" · ")[0]} <span>{workoutName.includes(" · ") ? `· ${workoutName.split(" · ").slice(1).join(" · ")}` : ""}</span></h1><p className="screen-subtitle">{actual ? "Guardado local" : "Sesión demo"} <span className="bullet">•</span> {completedSets} {completedSets === 1 ? "serie" : "series"}</p></div><WorkoutStopwatch /></section>{message ? <p className="status-line">{message}</p> : null}<div className="workout-progress"><span style={{ width: `${Math.min(((currentExerciseIndex + 1) / Math.max(totalExercises, 1)) * 100, 100)}%` }} /></div><section className="exercise-log-card">{demonstration ?
     <ExerciseRepetition key={currentExercise.id} demonstration={demonstration} videoRef={workoutVideoRef} compact /> :
     <div className={`exercise-visual exercise-visual-${currentExercise.color}`}><div className="exercise-visual-orbit" aria-hidden="true" /><span className="exercise-visual-kicker">EJERCICIO {String(currentExerciseIndex + 1).padStart(2, "0")} / {String(totalExercises).padStart(2, "0")}</span><Icon name="train" size={36} /><span className="exercise-visual-muscle">{currentExercise.muscle}</span></div>}<div className="exercise-log-heading"><div><span className="exercise-index">{String(currentExerciseIndex + 1).padStart(2, "0")}</span><div><h2>{currentExercise.name}</h2><p>{actual ? "Catálogo oficial" : currentExercise.muscle}</p></div></div><span className="exercise-status">{exerciseSets.length} {exerciseSets.length === 1 ? "serie" : "series"}</span></div>{exerciseDetails && <WorkoutTechnique key={exerciseDetails.id} education={exerciseDetails.education} onOpen={() => {
       const video = workoutVideoRef.current;
@@ -511,7 +582,7 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
         <button className="primary-button set-complete-button" type="submit" disabled={setPending || index !== exerciseSets.length} aria-label={`Completar serie ${number}`}><Icon name="check" size={19} /></button>
       </form>;
     })}
-    <button className="secondary-button add-workout-set" type="button" onClick={() => {
+    <button className="secondary-button add-workout-set" type="button" disabled={!currentExercise.id} onClick={() => {
       setMinimumSetRows((previous) => Math.max(previous, rowCount) + 1);
     }}><Icon name="plus" size={17} /> Agregar serie</button>
     {inputError && <p className="form-error" role="alert">{inputError}</p>}
@@ -776,7 +847,8 @@ function buildWorkoutExercises(routine: RoutineSummary | null, catalogExercises:
     return routine.demoPlan.exerciseIds.flatMap((id) => demoWorkoutExercises.filter((exercise) => exercise.id === id));
   }
   if (routine?.api !== null && routine?.api !== undefined) {
-    if (catalogExercises === null) return [];
+    if (catalogExercises === null || routine.api.exercises.some((item) =>
+      item.status === "active" && !catalogExercises.some((exercise) => exercise.id === item.exerciseId && exercise.status === "published"))) return [];
     return routine.api.exercises
       .filter((item) => item.status === "active")
       .sort((left, right) => left.position - right.position)

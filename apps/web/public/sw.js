@@ -1,4 +1,4 @@
-const CACHE_NAME = "forma-shell-v11";
+const CACHE_NAME = "forma-shell-v12";
 const EXERCISE_VIDEOS = new Set([
   "/media/exercises/squat-back-barbell/repetition-pilot.mp4",
   "/media/exercises/bench-press-barbell/repetition-pilot.mp4",

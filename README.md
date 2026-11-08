@@ -40,6 +40,10 @@ npm run build && npm run start:api
 - No implementa consentimiento ni consulta de sesiones por entrenadores.
 - No contiene credenciales ni servicios de aplicación desplegados.
 
+## Estado de cierre
+
+La vista de prueba permite crear planes locales. Las rutinas de cuenta se editan online y se guardan por separado en una copia de lectura en IndexedDB. Las sesiones nuevas conservan una copia local del orden y objetivos de la rutina junto con el inicio y el outbox. La recuperación, la retirada conocida de ejercicios y los límites de la entrega están detallados en [Estado de verificación](docs/testing/verification-status.md).
+
 ## Próximo paso
 
 Decidir y desplegar el servicio API con un proveedor aprobado, configurar `VITE_FORMA_API_URL` y ejecutar una prueba end-to-end con un usuario de Supabase Auth. Después corresponde probar la bandeja de recuperación con operaciones reales bloqueadas, validar instalación/offline en dispositivos reales, optimizar el bundle y probar restauración de backups. El API no se considera desplegado mientras esas verificaciones no existan.

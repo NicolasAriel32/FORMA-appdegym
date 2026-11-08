@@ -18,7 +18,7 @@ export default defineConfig({
         this.emitFile({
           type: "asset",
           fileName: "sw.js",
-          source: worker.replace('"forma-shell-v7"', JSON.stringify(`forma-shell-v7-${version}`))
+          source: worker.replace(/"forma-shell-v[0-9]+"/, (cache) => JSON.stringify(`${JSON.parse(cache)}-${version}`))
             .replace("/* build assets */", assets.map((file) => JSON.stringify(`/${file}`)).join(", ")),
         });
       },

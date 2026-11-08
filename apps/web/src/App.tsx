@@ -66,7 +66,8 @@ type RoutineSummary = {
   note: string;
 };
 type WorkoutSetInput = { loadKg: number; repetitions: number };
-type WorkoutExercise = { id: string; name: string; muscle: string; color: string };
+type WorkoutExercise = { id: string; name: string; muscle: string; color: string; targetSets?: number };
+const defaultWorkoutSets = 3;
 
 const tabs: Array<{ id: AppTab; label: string; icon: IconName }> = [
   { id: "home", label: "Inicio", icon: "home" },
@@ -357,8 +358,7 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
   const [restSeconds, setRestSeconds] = useState(120);
   const [restDeadline, setRestDeadline] = useState<number | null>(null);
   const restRunning = restDeadline !== null;
-  const [loadInput, setLoadInput] = useState("");
-  const [repetitionsInput, setRepetitionsInput] = useState("");
+  const [extraSetExerciseId, setExtraSetExerciseId] = useState<string | null>(null);
   const [setPending, setSetPending] = useState(false);
   const [inputError, setInputError] = useState<string | null>(null);
   useEffect(() => {
@@ -399,17 +399,16 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
   }
 
   const actual = activeSession !== null;
-  useEffect(() => {
-    setLoadInput("");
-    setRepetitionsInput("");
-    setInputError(null);
-  }, [currentExercise.id, started]);
+  const targetSets = currentExercise.targetSets ?? defaultWorkoutSets;
+  const rowCount = Math.max(targetSets, exerciseSets.length + Number(extraSetExerciseId === currentExercise.id));
 
-  async function saveCurrentSet(): Promise<void> {
-    if (setPending) return;
-    const loadKg = Number(loadInput);
-    const repetitions = Number(repetitionsInput);
-    if (!loadInput.trim() || !Number.isFinite(loadKg) || loadKg < 0 || !Number.isInteger(repetitions) || repetitions <= 0) {
+  async function saveCurrentSet(form: HTMLFormElement, index: number): Promise<void> {
+    if (setPending || index !== exerciseSets.length) return;
+    const values = new FormData(form);
+    const load = String(values.get("load") ?? "").trim();
+    const loadKg = Number(load);
+    const repetitions = Number(values.get("repetitions"));
+    if (!load || !Number.isFinite(loadKg) || loadKg < 0 || !Number.isInteger(repetitions) || repetitions <= 0) {
       setInputError("Usá una carga válida y reps enteras mayores a cero.");
       return;
     }
@@ -417,6 +416,7 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
     setSetPending(true);
     try {
       if (await onCompleteSet(loadKg, repetitions)) {
+        setExtraSetExerciseId(null);
         startRest(restDuration);
       }
     } finally {
@@ -431,21 +431,30 @@ function TrainView({ started, activeSession, workoutName, currentExercise, exerc
       setDetailsOpen(true);
     }} />}{exerciseDetails && detailsOpen && <ExerciseDetails exercise={exerciseDetails} onClose={() => setDetailsOpen(false)} />}
     <div className="set-header" aria-hidden="true"><span>Serie</span><span>Kg</span><span>Reps</span><span /></div>
-    {exerciseSets.map((set, index) => <div className="set-row" key={index}>
-      <span className="set-number">{index + 1}</span><span>{set.loadKg}</span><span>{set.repetitions}</span>
-      <span className="set-confirmed" role="img" aria-label={`Serie ${index + 1} completada`}><Icon name="check" size={18} /></span>
-    </div>)}
-    <form className="set-entry set-entry-inline" onSubmit={(event) => { event.preventDefault(); void saveCurrentSet(); }}>
-      <span className="set-number">{exerciseSets.length + 1}</span>
-      <input aria-label="Carga (kg)" placeholder="kg" inputMode="decimal" min="0" step="any" type="number" required value={loadInput} onChange={(event) => { setLoadInput(event.target.value); setInputError(null); }} />
-      <input aria-label="Repeticiones" placeholder="reps" inputMode="numeric" min="1" step="1" type="number" required value={repetitionsInput} onChange={(event) => { setRepetitionsInput(event.target.value); setInputError(null); }} />
-      <button className="primary-button set-complete-button" type="submit" disabled={setPending} aria-label={setPending ? "Guardando serie" : `Completar serie ${exerciseSets.length + 1}`}><Icon name="check" size={19} /></button>
-    </form>
+    {Array.from({ length: rowCount }, (_, index) => {
+      const set = exerciseSets[index];
+      const number = index + 1;
+      if (set) return <div className="set-row" key={`${currentExercise.id}-${index}`}>
+        <span className="set-number">{number}</span><span>{set.loadKg}</span><span>{set.repetitions}</span>
+        <span className="set-confirmed" role="img" aria-label={`Serie ${number} completada`}><Icon name="check" size={18} /></span>
+      </div>;
+
+      return <form className="set-entry set-entry-inline" key={`${currentExercise.id}-${index}`} onSubmit={(event) => {
+        event.preventDefault();
+        void saveCurrentSet(event.currentTarget, index);
+      }}>
+        <span className="set-number">{number}</span>
+        <input name="load" aria-label={`Carga (kg) de la serie ${number}`} placeholder="kg" inputMode="decimal" min="0" step="any" type="number" required onChange={() => setInputError(null)} />
+        <input name="repetitions" aria-label={`Repeticiones de la serie ${number}`} placeholder="reps" inputMode="numeric" min="1" step="1" type="number" required onChange={() => setInputError(null)} />
+        <button className="primary-button set-complete-button" type="submit" disabled={setPending || index !== exerciseSets.length} aria-label={`Completar serie ${number}`}><Icon name="check" size={19} /></button>
+      </form>;
+    })}
+    {exerciseSets.length >= targetSets && extraSetExerciseId !== currentExercise.id &&
+      <button className="secondary-button add-workout-set" type="button" onClick={() => setExtraSetExerciseId(currentExercise.id)}>Agregar serie</button>}
     {inputError && <p className="form-error" role="alert">{inputError}</p>}
     <WorkoutRest seconds={restSeconds} running={restRunning} minutes={restDuration / 60} onChange={changeRest} onToggle={toggleRest} />
     <button className="secondary-button finish-button" type="button" disabled={setPending} onClick={onFinish}>Finalizar sesión</button></section>{currentExerciseIndex < totalExercises - 1 && nextExercise !== null ? <button className="next-exercise-card" type="button" disabled={setPending} onClick={() => {
-      setLoadInput("");
-      setRepetitionsInput("");
+      setExtraSetExerciseId(null);
       setInputError(null);
       onNextExercise();
     }}><span className="card-kicker">SIGUIENTE EJERCICIO</span><div><h2>{nextExercise.name}</h2><p>{nextExercise.muscle} · avanzar cuando termines tus series</p></div><Icon name="chevron" size={18} /></button> : <section className="next-exercise-card is-complete"><span className="card-kicker">PLAN COMPLETO</span><div><h2>Último ejercicio de la sesión</h2><p>Revisá tus series y finalizá cuando estés listo.</p></div><Icon name="check" size={18} /></section>}</div>;
@@ -628,7 +637,7 @@ function buildWorkoutExercises(routine: RoutineSummary | null, catalogExercises:
       .sort((left, right) => left.position - right.position)
       .flatMap((item, index) => {
         const exercise = catalogExercises.find((candidate) => candidate.id === item.exerciseId && candidate.status === "published");
-        return exercise === undefined ? [] : [{ id: exercise.id, name: exercise.name, muscle: exercise.targetMuscles.join(" · ") || exercise.description || "Ejercicio oficial", color: ["violet", "blue", "green", "orange"][index % 4] ?? "violet" }];
+        return exercise === undefined ? [] : [{ id: exercise.id, name: exercise.name, targetSets: item.targetSets, muscle: exercise.targetMuscles.join(" · ") || exercise.description || "Ejercicio oficial", color: ["violet", "blue", "green", "orange"][index % 4] ?? "violet" }];
       });
   }
   if (catalogExercises !== null) {

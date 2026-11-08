@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { ReactElement } from "react";
+import type { ReactElement, RefObject } from "react";
 
 const phases = [
   { label: "Inicio", at: 0, cue: "Apoyá el pie completo y prepará el tronco antes de bajar." },
@@ -7,6 +7,44 @@ const phases = [
   { label: "Fondo", at: 0.48, cue: "Frená en una profundidad que puedas controlar sin perder el apoyo." },
   { label: "Subida", at: 0.72, cue: "Empujá el piso y extendé caderas y rodillas juntas." },
 ] as const;
+
+const squatMedia = "/media/exercises/squat-back-barbell";
+const repetitionDuration = 4.2;
+
+export function SquatRepetition({ videoRef, compact = false, onProgress }: {
+  videoRef?: RefObject<HTMLVideoElement | null>;
+  compact?: boolean;
+  onProgress?: (progress: number) => void;
+}): ReactElement {
+  const fallbackRef = useRef<HTMLVideoElement>(null);
+  const player = videoRef ?? fallbackRef;
+  const [playing, setPlaying] = useState(false);
+  const video = <video
+    ref={player}
+    className={`squat-model squat-video${compact ? " squat-video-compact" : ""}`}
+    src={`${squatMedia}/repetition-pilot.mp4`}
+    poster={`${squatMedia}/poster.webp`}
+    aria-label="Sentadilla trasera con barra en vista de tres cuartos"
+    preload="metadata"
+    playsInline
+    muted
+    loop
+    onPlay={() => setPlaying(true)}
+    onPause={() => setPlaying(false)}
+    onTimeUpdate={(event) => onProgress?.(event.currentTarget.currentTime / repetitionDuration)}
+  />;
+  if (!compact) return video;
+
+  return <div className="workout-squat-media">
+    {video}
+    <button className="squat-inline-play" type="button" onClick={() => {
+      const element = player.current;
+      if (!element) return;
+      if (element.paused) void element.play().catch(() => setPlaying(false));
+      else element.pause();
+    }}>{playing ? "Pausar" : "Ver movimiento"}</button>
+  </div>;
+}
 
 type View = "movement" | "technique" | "muscles";
 type Point = readonly [forward: number, height: number, side: number];
@@ -16,9 +54,10 @@ export function SquatPreview(): ReactElement {
   const [progress, setProgress] = useState(0);
   const [playing, setPlaying] = useState(false);
   const position = useRef(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (!playing || view === "muscles") return;
+    if (!playing || view !== "technique") return;
     let frame = 0;
     let previous: number | undefined;
     function render(now: number) {
@@ -36,6 +75,8 @@ export function SquatPreview(): ReactElement {
 
   function selectView(next: View) {
     setPlaying(false);
+    position.current = 0;
+    setProgress(0);
     setView(next);
   }
 
@@ -46,18 +87,33 @@ export function SquatPreview(): ReactElement {
       <button type="button" aria-pressed={view === "technique"} onClick={() => selectView("technique")}>Técnica lateral</button>
       <button type="button" aria-pressed={view === "muscles"} onClick={() => selectView("muscles")}>Músculos</button>
     </div>
-    <SquatFigure progress={view === "muscles" ? .48 : progress} view={view} />
+    {view === "movement" ? <SquatRepetition videoRef={videoRef} onProgress={setProgress} /> :
+      <SquatFigure progress={view === "muscles" ? .48 : progress} view={view} />}
     {view === "muscles" ? <p className="squat-cue"><strong>Cuádriceps y glúteo mayor.</strong> El color señala los grupos principales de forma orientativa.</p> : <>
       <div className="squat-controls squat-phases" role="group" aria-label="Fases de la repetición">
         {phases.map((item) => <button key={item.label} type="button" aria-pressed={phase === item} onClick={() => {
           setPlaying(false);
+          if (videoRef.current) {
+            videoRef.current.pause();
+            videoRef.current.currentTime = item.at * repetitionDuration;
+          }
           position.current = item.at;
           setProgress(item.at);
         }}>{item.label}</button>)}
       </div>
       <p className="squat-cue"><strong>{phase.label}.</strong> {phase.cue}</p>
       {view === "technique" && <p className="squat-cue">La línea punteada marca la referencia del mediopié en esta demostración.</p>}
-      <button className="secondary-button squat-play" type="button" onClick={() => setPlaying(!playing)}>{playing ? "Pausar" : "Reproducir loop"}</button>
+      <button className="secondary-button squat-play" type="button" onClick={() => {
+        const video = videoRef.current;
+        if (!video) {
+          setPlaying(!playing);
+        } else if (playing) {
+          video.pause();
+          setPlaying(false);
+        } else {
+          void video.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+        }
+      }}>{playing ? "Pausar" : "Reproducir loop"}</button>
     </>}
   </section>;
 }

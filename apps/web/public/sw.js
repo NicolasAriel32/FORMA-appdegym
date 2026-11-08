@@ -1,7 +1,9 @@
-const CACHE_NAME = "forma-shell-v5";
+const CACHE_NAME = "forma-shell-v6";
+const SQUAT_VIDEO = "/media/exercises/squat-back-barbell/repetition-pilot.mp4";
 const SHELL = [
   "/",
   "/manifest.webmanifest",
+  SQUAT_VIDEO,
   "/media/exercises/squat-start.webp",
   "/media/exercises/squat-descent.webp",
   "/media/exercises/squat-return.webp",
@@ -45,6 +47,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (url.pathname === SQUAT_VIDEO) {
+    event.respondWith(serveSquatVideo(event.request));
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
@@ -55,3 +62,30 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(event.request).then((cached) => cached ?? caches.match("/"))),
   );
 });
+
+async function serveSquatVideo(request) {
+  const cached = await caches.match(SQUAT_VIDEO);
+  if (!cached) return fetch(request);
+
+  const range = request.headers.get("range");
+  if (!range) return cached;
+
+  const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+  const bytes = await cached.arrayBuffer();
+  const length = bytes.byteLength;
+  const start = match?.[1] ? Number(match[1]) : Math.max(0, length - Number(match?.[2]));
+  const end = match?.[1] && match[2] ? Math.min(Number(match[2]), length - 1) : length - 1;
+  if (!match || (!match[1] && !match[2]) || start >= length || start > end) {
+    return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${length}` } });
+  }
+
+  return new Response(bytes.slice(start, end + 1), {
+    status: 206,
+    headers: {
+      "Accept-Ranges": "bytes",
+      "Content-Length": String(end - start + 1),
+      "Content-Range": `bytes ${start}-${end}/${length}`,
+      "Content-Type": "video/mp4",
+    },
+  });
+}

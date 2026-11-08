@@ -160,6 +160,10 @@ html:has(.exercise-details[open]) { overflow: hidden; }
   border-radius: 16px;
   background: radial-gradient(ellipse at center, #302646, #171725 75%);
 }
+.squat-video { object-fit: contain; background: #17161e; }
+.workout-squat-media { position: relative; margin: 0 0 14px; }
+.squat-video-compact { height: clamp(144px, min(49vw, 29dvh), 220px); }
+.squat-inline-play { position: absolute; right: 7px; bottom: 7px; min-height: 44px; max-width: 72px; padding: 4px 7px; border: 1px solid #514866; border-radius: 9px; background: #242035; color: #fff; font: inherit; font-size: .72rem; cursor: pointer; }
 .squat-cue { margin: 0; color: #d4cfe7; font-size: .85rem; line-height: 1.45; }
 .squat-play, .workout-technique { min-height: 44px; }
 .workout-technique { width: 100%; margin-bottom: 12px; }

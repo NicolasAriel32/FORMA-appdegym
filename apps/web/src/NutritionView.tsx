@@ -149,7 +149,7 @@ export function NutritionView({ ownerId, onBack }: { ownerId: string | null; onB
           <button className="primary-button full-button" type="submit">Guardar alimento</button>
         </form> : <form className="nutrition-form" onSubmit={saveGoals}>
           <p className="nutrition-form-hint">Cargá los objetivos que definiste para vos. No se calculan automáticamente.</p>
-          <div className="nutrition-form-grid"><label>Calorías (kcal)<input name="calories" type="number" min="0" step="1" defaultValue={data.goals.calories} /></label><label>Proteína (g)<input name="protein" type="number" min="0" step="1" defaultValue={data.goals.protein} /></label><label>Carbohidratos (g)<input name="carbs" type="number" min="0" step="1" defaultValue={data.goals.carbs} /></label><label>Grasas (g)<input name="fats" type="number" min="0" step="1" defaultValue={data.goals.fats} /></div>
+          <div className="nutrition-form-grid"><label>Calorías (kcal)<input name="calories" type="number" min="0" step="1" defaultValue={data.goals.calories} /></label><label>Proteína (g)<input name="protein" type="number" min="0" step="1" defaultValue={data.goals.protein} /></label><label>Carbohidratos (g)<input name="carbs" type="number" min="0" step="1" defaultValue={data.goals.carbs} /></label><label>Grasas (g)<input name="fats" type="number" min="0" step="1" defaultValue={data.goals.fats} /></label></div>
           <button className="primary-button full-button" type="submit">Guardar objetivos</button>
         </form>}
       </section>

@@ -328,3 +328,36 @@ html:has(.exercise-details[open]) { overflow: hidden; }
 .stopwatch-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .stopwatch-actions button { min-height: 44px; }
 .add-workout-set { width: 100%; margin-bottom: 12px; }
+
+
+/* Keep the authored 3D loop in every exercise detail mode; modes adjust focus only. */
+.exercise-repetition { display: grid; gap: 9px; }
+.exercise-repetition-frame { overflow: hidden; border: 1px solid #3d3558; border-radius: 16px; background: radial-gradient(ellipse at center, #302646, #171725 75%); }
+.exercise-repetition .squat-model { border: 0; transition: transform .35s ease, object-position .35s ease; }
+.exercise-repetition[data-view="technique"] .squat-video { transform: scale(var(--technique-zoom, 1.1)); }
+.exercise-repetition[data-view="muscles"] .squat-video { transform: scale(var(--muscle-zoom, 1.2)); }
+.exercise-repetition[data-demonstration="squat"] { --technique-zoom: 1.08; --muscle-zoom: 1.23; }
+.exercise-repetition[data-demonstration="bench"] { --technique-zoom: 1.08; --muscle-zoom: 1.25; }
+.exercise-repetition[data-demonstration="deadlift"] { --technique-zoom: 1.12; --muscle-zoom: 1.24; }
+.exercise-repetition[data-demonstration="row"] { --technique-zoom: 1.1; --muscle-zoom: 1.26; }
+.exercise-mode-controls { margin: 0; }
+.exercise-technique-guide { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.exercise-technique-rail { position: absolute; top: 22%; right: 15%; width: 3px; height: 54%; border-radius: 4px; background: linear-gradient(180deg, transparent, #c8b7ff 16%, #c8b7ff 84%, transparent); box-shadow: 0 0 13px rgba(185, 165, 255, .8); }
+.exercise-technique-marker { position: absolute; top: 47%; right: calc(15% - 4px); width: 11px; height: 11px; border: 2px solid #fff; border-radius: 50%; background: #ab8cff; box-shadow: 0 0 12px rgba(185, 165, 255, .9); }
+.exercise-technique-guide small { position: absolute; right: 8px; bottom: 43px; padding: 5px 7px; border: 1px solid rgba(196, 180, 255, .3); border-radius: 7px; color: #e2dbff; background: rgba(20, 18, 33, .82); font-size: .52rem; font-weight: 900; letter-spacing: .12em; }
+.guide-bench .exercise-technique-rail { top: 45%; right: 23%; width: 46%; height: 3px; }
+.guide-bench .exercise-technique-marker { top: calc(45% - 4px); right: 44%; }
+.guide-deadlift .exercise-technique-rail { top: 25%; right: 29%; height: 53%; transform: rotate(27deg); }
+.guide-deadlift .exercise-technique-marker { top: 54%; right: 30%; }
+.guide-row .exercise-technique-rail { top: 30%; right: 25%; height: 46%; transform: rotate(42deg); }
+.guide-row .exercise-technique-marker { top: 50%; right: 29%; }
+.exercise-muscle-glow { position: absolute; left: var(--glow-x, 50%); top: var(--glow-y, 55%); width: var(--glow-size, 27%); aspect-ratio: 1; transform: translate(-50%, -50%); border: 1px solid rgba(255, 157, 128, .65); border-radius: 50%; background: radial-gradient(circle, rgba(255, 123, 104, .52), rgba(252, 105, 124, .2) 48%, transparent 72%); box-shadow: 0 0 28px rgba(255, 112, 120, .24); pointer-events: none; }
+.glow-squat { --glow-x: 52%; --glow-y: 68%; --glow-size: 31%; }
+.glow-bench { --glow-x: 49%; --glow-y: 48%; --glow-size: 32%; }
+.glow-deadlift { --glow-x: 51%; --glow-y: 63%; --glow-size: 33%; }
+.glow-row { --glow-x: 51%; --glow-y: 43%; --glow-size: 31%; }
+.exercise-muscle-badge { position: absolute; left: 8px; bottom: 8px; max-width: calc(100% - 112px); overflow: hidden; padding: 6px 8px; border: 1px solid rgba(255, 168, 151, .35); border-radius: 8px; color: #ffe0d8; background: rgba(35, 20, 29, .86); font-size: .55rem; font-weight: 900; letter-spacing: .07em; text-overflow: ellipsis; white-space: nowrap; }
+.exercise-muscle-details { display: grid; gap: 7px; }
+@media (prefers-reduced-motion: reduce) {
+  .exercise-repetition .squat-model { transition: none; }
+}

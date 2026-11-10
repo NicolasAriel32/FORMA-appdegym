@@ -734,7 +734,7 @@ function ExerciseDetails({ exercise, onClose }: { exercise: ExerciseCard; onClos
     {demonstration === "squat" && <SquatPreview />}
     {demonstration && demonstration !== "squat" && <section className="squat-preview" aria-label={`Demostración de ${exercise.name.toLocaleLowerCase("es")}`}>
       <p className="exercise-detail-kicker">ANIMACIÓN 3D · SE REPRODUCE AUTOMÁTICAMENTE</p>
-      <ExerciseRepetition demonstration={demonstration} />
+      <ExerciseRepetition demonstration={demonstration} showViewControls muscles={[...info.targetMuscles, ...info.secondaryMuscles]} />
     </section>}
     <DetailSection title="Ejecución técnica"><p>{info.instructions}</p></DetailSection>
     <DetailSection title="Músculos principales"><div className="tag-list">{info.targetMuscles.map((item) => <span key={item}>{item}</span>)}</div></DetailSection>

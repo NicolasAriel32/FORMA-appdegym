@@ -4,7 +4,7 @@ import "./nutrition.css";
 
 type Goals = { calories: number; protein: number; carbs: number; fats: number };
 type FoodEntry = { id: string; name: string; meal: string; protein: number; carbs: number; fats: number; date: string };
-type NutritionData = { goals: Goals; entries: FoodEntry[] };
+type NutritionData = { goals: Goals; entries: FoodEntry[]; goalsConfigured: boolean };
 
 const defaultGoals: Goals = { calories: 2230, protein: 160, carbs: 240, fats: 70 };
 const meals = ["Desayuno", "Almuerzo", "Merienda", "Cena", "Colación"];
@@ -27,12 +27,12 @@ function readNutritionData(key: string): NutritionData {
             typeof entry.name === "string" && typeof entry.meal === "string" &&
             typeof entry.date === "string" && Number.isFinite(entry.protein) &&
             Number.isFinite(entry.carbs) && Number.isFinite(entry.fats));
-          return { goals: goals as Goals, entries };
+          return { goals: goals as Goals, entries, goalsConfigured: value.goalsConfigured === true };
         }
       }
     }
   } catch { /* Storage can be unavailable or contain an old version. */ }
-  return { goals: defaultGoals, entries: [] };
+  return { goals: defaultGoals, entries: [], goalsConfigured: false };
 }
 
 function numberFrom(form: FormData, key: string): number {
@@ -94,7 +94,7 @@ export function NutritionView({ ownerId, onBack }: { ownerId: string | null; onB
       carbs: numberFrom(form, "carbs"),
       fats: numberFrom(form, "fats"),
     };
-    save({ ...data, goals });
+    save({ ...data, goals, goalsConfigured: true });
     if (localStorage.getItem(storageKey) !== null) setEditor(null);
   }
 
@@ -119,7 +119,7 @@ export function NutritionView({ ownerId, onBack }: { ownerId: string | null; onB
     </section>
 
     <section className="nutrition-target-row">
-      <div><span className="nutrition-kicker">TUS OBJETIVOS</span><strong>Configurados por vos</strong><small>Las metas son editables y no reemplazan asesoramiento profesional.</small></div>
+      <div><span className="nutrition-kicker">TUS OBJETIVOS</span><strong>{data.goalsConfigured ? "Configurados por vos" : "Metas de ejemplo"}</strong><small>{data.goalsConfigured ? "Tus objetivos son editables cuando cambie tu plan." : "Personalizá los valores de muestra según tu objetivo."} No reemplaza asesoramiento profesional.</small></div>
       <button className="nutrition-edit-goals" type="button" onClick={() => setEditor("goals")}>Editar</button>
     </section>
 

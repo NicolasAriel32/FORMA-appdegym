@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { SquatPreview } from "./SquatPreview.js";
+import { ExerciseRepetition } from "./ExerciseRepetition.js";
+import { NutritionView } from "./NutritionView.js";
+import type { Demonstration } from "./ExerciseRepetition.js";
 import type { FormEvent, ReactElement, ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import type { ExerciseId, SessionId, SetId, UserId, WorkoutSession } from "../../../packages/domain/src/workout.js";
@@ -18,7 +22,12 @@ import {
   listOutboxOperations,
   listSessionsByOwner,
   openLocalDatabase,
-  savePublishedExercises,
+  getWorkoutPlan,
+  readPublishedCatalog,
+  readCachedRoutines,
+  saveCachedRoutines,
+  savePublishedCatalog,
+  type WorkoutPlanSnapshot,
   type LocalDatabase,
 } from "./platform/local-db.js";
 import { drainOutbox, pullSyncChanges } from "./workout/outbox-sync-service.js";
@@ -49,16 +58,20 @@ type ExerciseEducation = {
   difficulty: string;
 };
 type ExerciseCard = { id: string; name: string; muscle: string; rank: string; color: string; education: ExerciseEducation };
-type ExerciseMediaSpec = { slug: string; animationPhases: Array<"start" | "descent" | "return">; muscleMapFile: string; technicalViewFile: string; status: "pilot" | "approved" };
-const exerciseMediaSpecs: Record<string, ExerciseMediaSpec> = {
-  "demo-squat": { slug: "squat-back-barbell", animationPhases: ["start", "descent", "return"], muscleMapFile: "muscles.webp", technicalViewFile: "angles.webp", status: "pilot" },
-};
-
-function getExerciseMediaSpec(exercise: ExerciseCard): ExerciseMediaSpec | null {
-  return exerciseMediaSpecs[exercise.id] ?? (exercise.name.toLowerCase().includes("sentadilla") ? exerciseMediaSpecs["demo-squat"] ?? null : null);
+function demonstrationFor(exercise: Pick<ExerciseCard, "id" | "name">): Demonstration | undefined {
+  const name = exercise.name.trim().toLocaleLowerCase("es");
+  if (exercise.id === "demo-squat" || name === "sentadilla trasera con barra" || name === "sentadilla con barra") return "squat";
+  if (exercise.id === "demo-bench" || /^press (?:de |en )?banca(?: plano)?(?: con barra)?$/.test(name)) return "bench";
+  if (exercise.id === "demo-rdl" || /^peso muerto rumano(?: con barra)?$/.test(name)) return "deadlift";
+  if (exercise.id === "demo-row" || /^remo (?:inclinado )?con barra$/.test(name)) return "row";
 }
+
 type RoutineAccent = "violet" | "blue" | "green" | "orange";
+type DemoPlan = { id: string; name: string; description: string; exerciseIds: string[] };
+const demoPlanKey = "forma.demo-plans.v1";
+
 type RoutineSummary = {
+  demoPlan?: DemoPlan;
   api: ApiRoutine | null;
   name: string;
   detail: string;
@@ -68,7 +81,8 @@ type RoutineSummary = {
   note: string;
 };
 type WorkoutSetInput = { loadKg: number; repetitions: number };
-type WorkoutExercise = { id: string; name: string; muscle: string; color: string };
+type WorkoutExercise = WorkoutPlanSnapshot["exercises"][number];
+const defaultWorkoutSets = 3;
 
 const tabs: Array<{ id: AppTab; label: string; icon: IconName }> = [
   { id: "home", label: "Inicio", icon: "home" },
@@ -83,13 +97,8 @@ const demoRoutines: Array<Omit<RoutineSummary, "api">> = [
   { name: "Pecho y espalda", detail: "8 ejercicios · 61 min", accent: "blue", progress: 44, muscleGroup: "Torso", note: "Última vez hace 2 días" },
   { name: "Full body", detail: "7 ejercicios · 48 min", accent: "green", progress: 18, muscleGroup: "Cuerpo completo", note: "Disponible para empezar" },
 ];
-const initialDemoSetValues: WorkoutSetInput[] = [
-  { loadKg: 80, repetitions: 8 },
-  { loadKg: 80, repetitions: 8 },
-];
-
 const demoExercises: ExerciseCard[] = [
-  { id: "demo-squat", name: "Sentadilla con barra", muscle: "Cuádriceps · Glúteos", rank: "Intermedio", color: "violet", education: { movementPattern: "Dominante de rodilla y cadera", targetMuscles: ["Cuádriceps", "Glúteo mayor"], secondaryMuscles: ["Aductores", "Isquiosurales", "Erectores espinales"], instructions: "Colocá la barra estable sobre la espalda, tomá aire y braceá el tronco. Descendé flexionando cadera y rodillas con el pie completo apoyado; alcanzá la profundidad que puedas controlar sin perder alineación. Empujá el suelo y extendé cadera y rodillas manteniendo la trayectoria de la barra sobre el mediopié.", commonMistakes: ["Colapsar las rodillas hacia adentro", "Despegar los talones", "Perder el control en el descenso", "Extender la zona lumbar al salir"], safetyNotes: ["Elegí una carga que permita repetir la técnica sin compensaciones", "Usá soportes y seguros correctamente regulados", "Si aparece dolor agudo, detené el ejercicio y consultá a un profesional de salud"], equipment: "Barra, rack y discos", difficulty: "Intermedio" } },
+  { id: "demo-squat", name: "Sentadilla con barra", muscle: "Cuádriceps · Glúteos", rank: "Intermedio", color: "violet", education: { movementPattern: "Dominante de rodilla y cadera", targetMuscles: ["Cuádriceps", "Glúteo mayor"], secondaryMuscles: ["Aductores", "Isquiosurales", "Erectores espinales"], instructions: "Colocá la barra estable sobre la espalda, tomá aire y braceá el tronco. Descendé flexionando cadera y rodillas con el pie completo apoyado; alcanzá la profundidad que puedas controlar sin perder alineación. Empujá el suelo y extendé cadera y rodillas manteniendo la trayectoria de la barra sobre el mediopié.", commonMistakes: ["Rodillas hacia adentro. Mantenelas alineadas con la dirección de los pies.", "Talones despegados. Conservá el apoyo del pie completo y ajustá la profundidad.", "Bajada sin control. Bajá más despacio y frená antes de subir.", "Arquear la zona lumbar al terminar. Volvé a quedar de pie con el tronco estable."], safetyNotes: ["Elegí una carga que permita repetir la técnica sin compensaciones", "Usá soportes y seguros correctamente regulados", "Si aparece dolor agudo, detené el ejercicio y consultá a un profesional de salud"], equipment: "Barra, rack y discos", difficulty: "Intermedio" } },
   { id: "demo-bench", name: "Press banca plano", muscle: "Pecho · Tríceps", rank: "Intermedio", color: "blue", education: { movementPattern: "Empuje horizontal", targetMuscles: ["Pectoral mayor"], secondaryMuscles: ["Tríceps", "Deltoides anterior"], instructions: "Acomodá ojos bajo la barra, escápulas retraídas y deprimidas, pies firmes. Bajá la barra hacia la zona media-baja del pecho con antebrazos aproximadamente verticales. Pausá sin rebotar y empujá manteniendo muñecas apiladas y hombros estables.", commonMistakes: ["Rebotar la barra en el pecho", "Abrir excesivamente los codos", "Levantar los glúteos del banco", "Entrenar sin seguros ni asistencia cuando corresponde"], safetyNotes: ["Usá un rack con seguros y una carga que puedas controlar", "Con cargas altas, entrená con asistencia competente", "El agarre no debe forzar la muñeca a una extensión extrema"], equipment: "Banco, barra y discos", difficulty: "Intermedio" } },
   { id: "demo-row", name: "Remo con barra", muscle: "Espalda · Bíceps", rank: "Principiante", color: "green", education: { movementPattern: "Tracción horizontal", targetMuscles: ["Dorsal ancho", "Romboides", "Trapecio medio"], secondaryMuscles: ["Bíceps", "Deltoides posterior", "Erectores espinales"], instructions: "Desde una bisagra de cadera, mantené la columna neutra y la barra cerca de las piernas. Tirala hacia el abdomen llevando los codos atrás, sin encoger los hombros. Bajá con control y repetí conservando el ángulo del tronco.", commonMistakes: ["Redondear la espalda para ganar recorrido", "Convertir el movimiento en un tirón de bíceps", "Usar impulso excesivo", "Elevar los hombros hacia las orejas"], safetyNotes: ["Aprendé la bisagra con una carga liviana antes de progresar", "No persigas amplitud si perdés la posición lumbar", "Detené la serie ante dolor agudo o irradiado"], equipment: "Barra y discos", difficulty: "Principiante" } },
   { id: "demo-rdl", name: "Peso muerto rumano", muscle: "Isquios · Glúteos", rank: "Intermedio", color: "orange", education: { movementPattern: "Bisagra de cadera", targetMuscles: ["Isquiosurales", "Glúteo mayor"], secondaryMuscles: ["Erectores espinales", "Aductores", "Antebrazos"], instructions: "Partí de pie con la carga cerca del cuerpo. Flexioná levemente las rodillas y llevá la cadera atrás mientras la barra desciende rozando los muslos. Bajá hasta sentir tensión controlable en los isquiosurales, luego acercá la cadera a la barra y extendé sin hiperextender la espalda.", commonMistakes: ["Convertirlo en una sentadilla", "Alejar la carga del cuerpo", "Buscar profundidad redondeando la espalda", "Bloquear las rodillas o hiperextender al finalizar"], safetyNotes: ["La profundidad depende de movilidad y control, no de tocar el suelo", "Progresá con incrementos pequeños y técnica repetible", "Consultá a un profesional si tenés lesión o dolor persistente"], equipment: "Barra y discos", difficulty: "Intermedio" } },
@@ -101,13 +110,26 @@ const demoWorkoutExercises: WorkoutExercise[] = [
   { id: "demo-row", name: "Remo con barra", muscle: "Espalda · Bíceps", color: "green" },
 ];
 
+function readDemoPlans(): DemoPlan[] {
+  const value: unknown = JSON.parse(localStorage.getItem(demoPlanKey) ?? "[]");
+  if (!Array.isArray(value)) return [];
+  return value.filter((plan): plan is DemoPlan =>
+    plan !== null && typeof plan === "object" &&
+    typeof plan.id === "string" && typeof plan.name === "string" &&
+    typeof plan.description === "string" && Array.isArray(plan.exerciseIds) &&
+    plan.exerciseIds.length > 0 &&
+    plan.exerciseIds.every((id: unknown) => demoWorkoutExercises.some((exercise) => exercise.id === id)) &&
+    new Set(plan.exerciseIds).size === plan.exerciseIds.length);
+}
+
 export default function App(): ReactElement {
   const [online, setOnline] = useState(() => navigator.onLine);
   const [activeTab, setActiveTab] = useState<AppTab>("home");
+  const [nutritionOpen, setNutritionOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [demoSessionStarted, setDemoSessionStarted] = useState(false);
-  const [demoCompletedSets, setDemoCompletedSets] = useState(2);
-  const [demoSetValues, setDemoSetValues] = useState<WorkoutSetInput[]>(initialDemoSetValues);
+  const [demoSetsByExercise, setDemoSetsByExercise] = useState<Record<string, WorkoutSetInput[]>>({});
+  const savingSet = useRef(false);
   const [activeWorkout, setActiveWorkout] = useState<WorkoutSession | null>(null);
   const [workoutExercises, setWorkoutExercises] = useState<WorkoutExercise[]>(demoWorkoutExercises);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -117,7 +139,8 @@ export default function App(): ReactElement {
   const [supabase] = useState(() => createConfiguredBrowserSupabaseClient());
   const [apiBaseUrl] = useState(() => createConfiguredBrowserApiBaseUrl());
   const [session, setSession] = useState<Session | null>(null);
-  const [serverUser, setServerUser] = useState<ApiUser | null>(null);
+  const [verifiedIdentity, setVerifiedIdentity] = useState<{ subject: string; user: ApiUser } | null>(null);
+  const serverUser = verifiedIdentity?.subject === session?.user.id ? verifiedIdentity?.user ?? null : null;
   const [authLoading, setAuthLoading] = useState(true);
   const [authBusy, setAuthBusy] = useState(false);
   const [email, setEmail] = useState("");
@@ -125,7 +148,8 @@ export default function App(): ReactElement {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [serverIdentityLoading, setServerIdentityLoading] = useState(false);
   const [serverIdentityMessage, setServerIdentityMessage] = useState<string | null>(null);
-  const [localDatabase, setLocalDatabase] = useState<LocalDatabase | null>(null);
+  const [ownerDatabase, setOwnerDatabase] = useState<{ ownerId: string; database: LocalDatabase } | null>(null);
+  const localDatabase = ownerDatabase?.ownerId === serverUser?.id ? ownerDatabase?.database ?? null : null;
   const [localSessions, setLocalSessions] = useState<WorkoutSession[] | null>(null);
   const [recoveryOperations, setRecoveryOperations] = useState<SyncOperation[]>([]);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
@@ -135,6 +159,11 @@ export default function App(): ReactElement {
   const [routines, setRoutines] = useState<ApiRoutine[] | null>(null);
   const [routinesLoading, setRoutinesLoading] = useState(false);
   const [routineMessage, setRoutineMessage] = useState<string | null>(null);
+  const [demoPlans, setDemoPlans] = useState<DemoPlan[]>(() => {
+    try { return readDemoPlans(); } catch { return []; }
+  });
+  const [demoEditor, setDemoEditor] = useState(false);
+  const [editingDemoPlan, setEditingDemoPlan] = useState<DemoPlan | null>(null);
   const [routineEditorOpen, setRoutineEditorOpen] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState<ApiRoutine | null>(null);
   const [routineSaving, setRoutineSaving] = useState(false);
@@ -155,23 +184,37 @@ export default function App(): ReactElement {
   }, [supabase]);
 
   useEffect(() => {
-    if (session === null || apiBaseUrl === undefined) { setServerUser(null); setServerIdentityLoading(false); setServerIdentityMessage(null); return; }
+    if (session === null || apiBaseUrl === undefined) { setVerifiedIdentity(null); setServerIdentityLoading(false); setServerIdentityMessage(null); return; }
     let active = true; setServerIdentityLoading(true); setServerIdentityMessage(null);
-    void fetchCurrentUser({ apiBaseUrl, accessToken: session.access_token }).then((user) => { if (active) setServerUser(user); }).catch((error) => { if (active) { setServerUser(null); setServerIdentityMessage(toApiMessage(error)); } }).finally(() => { if (active) setServerIdentityLoading(false); });
+    void fetchCurrentUser({ apiBaseUrl, accessToken: session.access_token }).then((user) => { if (active) setVerifiedIdentity({ subject: session.user.id, user }); }).catch((error) => { if (active) { setVerifiedIdentity(null); setServerIdentityMessage(toApiMessage(error)); } }).finally(() => { if (active) setServerIdentityLoading(false); });
     return () => { active = false; };
   }, [apiBaseUrl, session]);
 
   useEffect(() => {
-    if (serverUser === null) { setLocalDatabase(null); setLocalSessions(null); setRecoveryOperations([]); setActiveWorkout(null); return; }
+    if (serverUser === null) { setOwnerDatabase(null); setLocalSessions(null); setRecoveryOperations([]); setActiveWorkout(null); return; }
     let active = true;
+    let openedDatabase: LocalDatabase | undefined;
     void openLocalDatabase(indexedDB, `forma-${serverUser.id}`).then(async (database) => {
+      openedDatabase = database;
       const sessions = await listSessionsByOwner(database, serverUser.id);
       const outbox = await listOutboxOperations(database);
       const current = sessions.find((candidate) => candidate.status === "in_progress" || candidate.status === "paused");
+      const plan = current ? await getWorkoutPlan(database, current.id) : undefined;
       if (!active) { database.close(); return; }
-      setLocalDatabase(database); setLocalSessions(sessions); setRecoveryOperations(outbox.filter((operation) => operation.state === "recovery_required" || operation.state === "blocked")); if (current !== undefined) setActiveWorkout(current);
+      setOwnerDatabase({ ownerId: serverUser.id, database }); setLocalSessions(sessions); setRecoveryOperations(outbox.filter((operation) => operation.state === "recovery_required" || operation.state === "blocked"));
+      setActiveWorkout(current ?? null);
+      if (current !== undefined) {
+        // Older sessions have no saved plan. Restore only exercises evidenced by stored sets.
+        const exercises = plan?.exercises ?? [...new Set(current.sets.map((set) => set.exerciseId))].map((id) => ({
+          id, name: "Ejercicio de la sesión", muscle: "", color: "violet",
+        }));
+        setWorkoutExercises(exercises);
+        setWorkoutName(plan?.name ?? "Sesión recuperada");
+        const latestExercise = current.sets.at(-1)?.exerciseId;
+        setCurrentExerciseIndex(Math.max(0, exercises.findIndex((exercise) => exercise.id === latestExercise)));
+      }
     }).catch(() => { if (active) setWorkoutMessage("No se pudo abrir el almacenamiento local seguro."); });
-    return () => { active = false; };
+    return () => { active = false; openedDatabase?.close(); };
   }, [serverUser]);
 
   useEffect(() => {
@@ -189,18 +232,54 @@ export default function App(): ReactElement {
   }, [apiBaseUrl, localDatabase, online, serverUser, session]);
 
   useEffect(() => {
-    if (session === null || apiBaseUrl === undefined) { setCatalogExercises(null); setCatalogMessage(null); return; }
-    let active = true; setCatalogLoading(true); setCatalogMessage(null);
-    void fetchPublishedExercises({ apiBaseUrl, accessToken: session.access_token }).then(async (exercises) => { if (!active) return; setCatalogExercises(exercises); if (localDatabase !== null) await savePublishedExercises(localDatabase, exercises); }).catch((error) => { if (active) { setCatalogExercises([]); setCatalogMessage(toApiMessage(error)); } }).finally(() => { if (active) setCatalogLoading(false); });
+    if (session === null || apiBaseUrl === undefined || localDatabase === null) {
+      setCatalogExercises(null); setCatalogMessage(null); setCatalogLoading(false); return;
+    }
+    let active = true;
+    setCatalogLoading(true); setCatalogMessage(null);
+    void (async () => {
+      try {
+        const cached = await readPublishedCatalog(localDatabase);
+        if (!active) return;
+        setCatalogExercises(cached);
+        if (!online) return;
+        const exercises = await fetchPublishedExercises({ apiBaseUrl, accessToken: session.access_token });
+        if (!active) return;
+        setCatalogExercises(exercises);
+        await savePublishedCatalog(localDatabase, exercises);
+      } catch (error) {
+        if (active) setCatalogMessage(toApiMessage(error));
+      } finally {
+        if (active) setCatalogLoading(false);
+      }
+    })();
     return () => { active = false; };
-  }, [apiBaseUrl, localDatabase, session]);
+  }, [apiBaseUrl, localDatabase, online, session]);
 
   useEffect(() => {
-    if (session === null || apiBaseUrl === undefined) { setRoutines(null); return; }
-    let active = true; setRoutinesLoading(true);
-    void fetchRoutines({ apiBaseUrl, accessToken: session.access_token }).then((loaded) => { if (active) setRoutines(loaded); }).catch((error) => { if (active) setRoutineMessage(toApiMessage(error)); }).finally(() => { if (active) setRoutinesLoading(false); });
+    if (session === null || apiBaseUrl === undefined || localDatabase === null) {
+      setRoutines(null); setRoutinesLoading(false); return;
+    }
+    let active = true;
+    setRoutinesLoading(true);
+    void (async () => {
+      try {
+        const cached = await readCachedRoutines(localDatabase);
+        if (!active) return;
+        setRoutines(cached);
+        if (!online) return;
+        const loaded = await fetchRoutines({ apiBaseUrl, accessToken: session.access_token });
+        if (!active) return;
+        setRoutines(loaded);
+        await saveCachedRoutines(localDatabase, loaded);
+      } catch (error) {
+        if (active) setRoutineMessage(toApiMessage(error));
+      } finally {
+        if (active) setRoutinesLoading(false);
+      }
+    })();
     return () => { active = false; };
-  }, [apiBaseUrl, session]);
+  }, [apiBaseUrl, localDatabase, online, session]);
 
   const displayExercises = useMemo<ExerciseCard[]>(() => {
     if (catalogExercises === null) return demoExercises;
@@ -236,22 +315,30 @@ export default function App(): ReactElement {
 
   async function startWorkout(routine: RoutineSummary | null = null): Promise<void> {
     setActiveTab("train"); setWorkoutMessage(null);
+    if (activeWorkout !== null || demoSessionStarted) {
+      setWorkoutMessage("Terminá la sesión activa para empezar otro plan.");
+      return;
+    }
+    if (!routine?.demoPlan && session && apiBaseUrl && !realWorkoutEnabled) {
+      setWorkoutMessage("Esperá a que FORMA valide tu cuenta y cargue el almacenamiento local.");
+      return;
+    }
     const plannedExercises = buildWorkoutExercises(routine, catalogExercises);
     if (routine?.api !== null && routine?.api !== undefined && plannedExercises.length === 0) {
       setWorkoutMessage("No se pudo cargar la estructura oficial de esta rutina.");
       return;
     }
-    if (realWorkoutEnabled && (catalogExercises === null || plannedExercises.length === 0)) {
+    if (!routine?.demoPlan && realWorkoutEnabled && (catalogExercises === null || plannedExercises.length === 0)) {
       setWorkoutMessage("Esperá a que cargue el catálogo oficial para iniciar esta sesión.");
       return;
     }
     setWorkoutExercises(plannedExercises.length > 0 ? plannedExercises : demoWorkoutExercises);
     setCurrentExerciseIndex(0);
     setWorkoutName(routine?.name ?? demoRoutines[0]!.name);
-    if (!realWorkoutEnabled || serverUser === null || localDatabase === null || clientInstanceId === null) { setDemoSessionStarted(true); return; }
+    if (routine?.demoPlan || !realWorkoutEnabled || serverUser === null || localDatabase === null || clientInstanceId === null) { setDemoSetsByExercise({}); setDemoSessionStarted(true); return; }
     try {
       const timestamp = new Date().toISOString();
-      const result = await startOfflineWorkoutSession({ database: localDatabase, ownerId: serverUser.id as UserId, sessionId: crypto.randomUUID() as SessionId, operationId: crypto.randomUUID(), clientInstanceId, createdAt: timestamp, startedAt: timestamp });
+      const result = await startOfflineWorkoutSession({ database: localDatabase, ownerId: serverUser.id as UserId, sessionId: crypto.randomUUID() as SessionId, operationId: crypto.randomUUID(), clientInstanceId, createdAt: timestamp, startedAt: timestamp, plan: { name: routine?.name ?? demoRoutines[0]!.name, exercises: plannedExercises } });
       setActiveWorkout(result.session); setWorkoutMessage("Sesión guardada localmente. Quedará pendiente de sincronización.");
       await refreshLocalSessions();
       await refreshSyncAttention();
@@ -259,31 +346,41 @@ export default function App(): ReactElement {
     } catch (error) { setWorkoutMessage(toErrorMessage(error, "No se pudo iniciar la sesión local.")); }
   }
 
-  async function completeSet(loadKg: number, repetitions: number): Promise<void> {
+  async function completeSet(loadKg: number, repetitions: number): Promise<boolean> {
+    if (savingSet.current) return false;
     if (!Number.isFinite(loadKg) || loadKg < 0 || !Number.isInteger(repetitions) || repetitions <= 0) {
       setWorkoutMessage("Ingresá una carga válida y una cantidad de repeticiones mayor a cero.");
-      return;
-    }
-    if (!realWorkoutEnabled || serverUser === null || localDatabase === null || activeWorkout === null || clientInstanceId === null) {
-      setDemoCompletedSets((value) => Math.min(value + 1, 8));
-      setDemoSetValues((values) => values.length >= 8 ? values : [...values, { loadKg, repetitions }]);
-      return;
+      return false;
     }
     const currentExercise = workoutExercises[currentExerciseIndex];
+    if (currentExercise === undefined) return false;
+    if (!realWorkoutEnabled || serverUser === null || localDatabase === null || activeWorkout === null || clientInstanceId === null) {
+      setDemoSetsByExercise((current) => ({
+        ...current,
+        [currentExercise.id]: [...(current[currentExercise.id] ?? []), { loadKg, repetitions }],
+      }));
+      return true;
+    }
     const exercise = catalogExercises?.find((candidate) => candidate.id === currentExercise?.id && candidate.status === "published");
-    if (exercise === undefined) { setWorkoutMessage("El catálogo oficial todavía no está disponible para registrar la serie."); return; }
+    if (exercise === undefined) { setWorkoutMessage("Este ejercicio no figura en el catálogo publicado. Podés conservar sus series y avanzar al siguiente."); return false; }
+    savingSet.current = true;
     try {
       const timestamp = new Date().toISOString();
       const result = await appendOfflineWorkoutSet({ database: localDatabase, ownerId: serverUser.id as UserId, sessionId: activeWorkout.id, operationId: crypto.randomUUID(), clientInstanceId, setId: crypto.randomUUID() as SetId, exercise: { id: exercise.id as ExerciseId, status: "published" }, exerciseId: exercise.id as ExerciseId, repetitions, loadKg, createdAt: timestamp });
       setActiveWorkout(result.session); setWorkoutMessage("Serie guardada en el dispositivo.");
-      await refreshLocalSessions();
-      await refreshSyncAttention();
+      void refreshLocalSessions().then(refreshSyncAttention).catch(() => undefined);
       void drainPendingOutbox();
-    } catch (error) { setWorkoutMessage(toErrorMessage(error, "No se pudo guardar la serie.")); }
+      return true;
+    } catch (error) {
+      setWorkoutMessage(toErrorMessage(error, "No se pudo guardar la serie."));
+      return false;
+    } finally {
+      savingSet.current = false;
+    }
   }
 
   async function finishWorkout(): Promise<void> {
-    if (!realWorkoutEnabled || serverUser === null || localDatabase === null || activeWorkout === null || clientInstanceId === null) { setDemoSessionStarted(false); setDemoCompletedSets(0); setDemoSetValues([]); setWorkoutMessage("La sesión demo se reinició. Para guardar entrenamientos reales, iniciá sesión y conectá el API."); return; }
+    if (!realWorkoutEnabled || serverUser === null || localDatabase === null || activeWorkout === null || clientInstanceId === null) { setDemoSessionStarted(false); setDemoSetsByExercise({}); setWorkoutMessage("La sesión demo se reinició. Para guardar entrenamientos reales, iniciá sesión y conectá el API."); return; }
     try {
       const result = await finishOfflineWorkoutSession({ database: localDatabase, ownerId: serverUser.id as UserId, sessionId: activeWorkout.id, operationId: crypto.randomUUID(), clientInstanceId, finishedAt: new Date().toISOString() });
       setActiveWorkout(null); setWorkoutMessage(`Sesión finalizada localmente con ${result.session.sets.length} series pendientes de sincronizar.`);
@@ -298,14 +395,44 @@ export default function App(): ReactElement {
     setWorkoutMessage(null);
   }
 
-  function openRoutineEditor(routine: ApiRoutine | null = null): void { setEditingRoutine(routine); setRoutineMessage(null); setRoutineEditorOpen(true); }
+  function openRoutineEditor(routine: ApiRoutine | null = null, demoPlan: DemoPlan | null = null): void {
+    setDemoEditor(demoPlan !== null || (routine === null && (session === null || apiBaseUrl === undefined)));
+    setEditingDemoPlan(demoPlan);
+    setEditingRoutine(routine);
+    setRoutineMessage(null);
+    setRoutineEditorOpen(true);
+  }
   async function saveRoutine(name: string, description: string, exerciseIds: string[]): Promise<void> {
+    if (demoEditor) {
+      if (!name.trim() || exerciseIds.length === 0) return;
+      try {
+        const saved = { id: editingDemoPlan?.id ?? crypto.randomUUID(), name: name.trim(), description: description.trim(), exerciseIds };
+        const current = readDemoPlans();
+        const next = editingDemoPlan === null ? [...current, saved] : current.map((plan) => plan.id === saved.id ? saved : plan);
+        localStorage.setItem(demoPlanKey, JSON.stringify(next));
+        setDemoPlans(next);
+        setRoutineEditorOpen(false);
+        setActiveTab("routines");
+      } catch {
+        setRoutineMessage("No se pudo guardar el plan en este navegador.");
+      }
+      return;
+    }
     if (session === null || apiBaseUrl === undefined || !online) { setRoutineMessage("La edición estructural de rutinas requiere conexión y una sesión online."); return; }
     setRoutineSaving(true); setRoutineMessage(null);
     try {
       const input = { name, description, exerciseIds };
       const saved = editingRoutine === null ? await createRoutine({ apiBaseUrl, accessToken: session.access_token, input }) : await updateRoutine({ apiBaseUrl, accessToken: session.access_token, routineId: editingRoutine.id, input });
-      setRoutines((current) => current === null ? [saved] : editingRoutine === null ? [...current, saved] : current.map((routine) => routine.id === saved.id ? saved : routine)); setRoutineEditorOpen(false);
+      const current = routines ?? [];
+      const updated = current.some((routine) => routine.id === saved.id)
+        ? current.map((routine) => routine.id === saved.id ? saved : routine)
+        : [...current, saved];
+      setRoutines(updated);
+      setRoutineEditorOpen(false);
+      if (localDatabase) {
+        await saveCachedRoutines(localDatabase, updated).catch(() =>
+          setRoutineMessage("La rutina se guardó en tu cuenta. No se pudo actualizar la copia sin conexión."));
+      }
     } catch (error) { setRoutineMessage(toApiMessage(error)); } finally { setRoutineSaving(false); }
   }
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> { event.preventDefault(); setAuthMessage(null); if (supabase === null) { setAuthMessage("La autenticación todavía no está configurada en este entorno."); return; } if (!online) { setAuthMessage("Necesitás conexión para iniciar sesión."); return; } setAuthBusy(true); try { const next = await signInWithPassword(supabase, email, password); setSession(next); setPassword(""); } catch (error) { setAuthMessage(toAuthMessage(error)); } finally { setAuthBusy(false); } }
@@ -313,12 +440,19 @@ export default function App(): ReactElement {
 
   const openRoutine = (routine: RoutineSummary): void => setSelectedRoutine(routine);
   const selectedRoutineForEdit = selectedRoutine?.api;
-  const currentWorkoutExercise = workoutExercises[currentExerciseIndex] ?? workoutExercises[0] ?? demoWorkoutExercises[0]!;
-  const exerciseCompletedSets = activeWorkout === null ? currentExerciseIndex === 0 ? demoSetValues.length : 0 : activeWorkout.sets.filter((set) => set.exerciseId === currentWorkoutExercise.id).length;
-  return <div className="app-shell"><div className="ambient ambient-one" aria-hidden="true" /><div className="ambient ambient-two" aria-hidden="true" /><header className="topbar"><div className="brand-mark" aria-label="FORMA"><span className="brand-symbol">F</span><span>FORMA</span></div><div className="topbar-actions"><span className={`sync-pill ${online ? "is-online" : "is-offline"}`}><span className="sync-dot" aria-hidden="true" />{online ? "Online" : "Offline"}</span><button className="profile-button" type="button" aria-label="Abrir perfil" onClick={() => setProfileOpen(true)}>{session?.user.email?.slice(0, 1).toUpperCase() ?? "N"}</button></div></header><main className="app-content">{recoveryOperations.length > 0 ? <SyncRecoveryBanner count={recoveryOperations.length} onOpen={() => setRecoveryOpen(true)} /> : null}{activeTab === "home" ? <HomeView onStart={() => void startWorkout({ api: null, ...demoRoutines[0]! })} onCreate={() => openRoutineEditor()} onOpenRoutine={openRoutine} /> : null}{activeTab === "routines" ? <RoutinesView routines={routines} loading={routinesLoading} message={routineMessage} catalogExercises={catalogExercises ?? []} onCreate={() => openRoutineEditor()} onEdit={openRoutineEditor} onOpenRoutine={openRoutine} /> : null}{activeTab === "train" ? <TrainView started={demoSessionStarted || activeWorkout !== null} activeSession={activeWorkout} workoutName={workoutName} currentExercise={currentWorkoutExercise} nextExercise={workoutExercises[currentExerciseIndex + 1] ?? null} currentExerciseIndex={currentExerciseIndex} totalExercises={workoutExercises.length} exerciseCompletedSets={exerciseCompletedSets} demoSetValues={demoSetValues} completedSets={activeWorkout?.sets.length ?? demoCompletedSets} message={workoutMessage} onStart={() => void startWorkout()} onCompleteSet={(loadKg, repetitions) => void completeSet(loadKg, repetitions)} onNextExercise={goToNextExercise} onFinish={() => void finishWorkout()} /> : null}{activeTab === "progress" ? <ProgressView sessions={localSessions} /> : null}{activeTab === "exercises" ? <ExercisesView query={exerciseQuery} onQueryChange={setExerciseQuery} exercises={filteredExercises} loading={catalogLoading} message={catalogMessage} source={catalogExercises === null ? "demo" : "api"} /> : null}</main><nav className="bottom-nav" aria-label="Navegación principal">{tabs.map((tab) => <button className={`nav-item ${activeTab === tab.id ? "is-active" : ""} ${tab.id === "train" ? "train-nav-item" : ""}`} type="button" key={tab.id} onClick={() => setActiveTab(tab.id)}><span className={tab.id === "train" ? "train-nav-icon" : "nav-icon"}><Icon name={tab.icon} size={tab.id === "train" ? 21 : 19} /></span><span>{tab.label}</span></button>)}</nav>{profileOpen ? <ProfileDrawer session={session} serverUser={serverUser} authLoading={authLoading} authBusy={authBusy} authMessage={authMessage} serverIdentityLoading={serverIdentityLoading} serverIdentityMessage={serverIdentityMessage} email={email} password={password} supabaseConfigured={supabase !== null} onClose={() => setProfileOpen(false)} onSubmit={(event) => void handleSubmit(event)} onEmailChange={setEmail} onPasswordChange={setPassword} onSignOut={() => void handleSignOut()} /> : null}{selectedRoutine ? <RoutineDetail routine={selectedRoutine} catalogExercises={catalogExercises ?? []} onClose={() => setSelectedRoutine(null)} onStart={() => { setSelectedRoutine(null); void startWorkout(selectedRoutine); }} onEdit={selectedRoutineForEdit === undefined || selectedRoutineForEdit === null ? undefined : () => { setSelectedRoutine(null); openRoutineEditor(selectedRoutineForEdit); }} /> : null}{routineEditorOpen ? <RoutineEditor routine={editingRoutine} exercises={catalogExercises ?? []} saving={routineSaving} online={online} onClose={() => setRoutineEditorOpen(false)} onSave={(name, description, exerciseIds) => void saveRoutine(name, description, exerciseIds)} /> : null}{recoveryOpen ? <SyncRecoveryDetails operations={recoveryOperations} onClose={() => setRecoveryOpen(false)} /> : null}</div>;
+  const workoutExercise = workoutExercises[currentExerciseIndex];
+  const currentWorkoutExercise = workoutExercise ?? { id: "", name: "Sin ejercicios recuperables", muscle: "", color: "violet" };
+  const workoutExerciseDetails = (activeWorkout ? displayExercises : demoExercises)
+    .find((exercise) => exercise.id === currentWorkoutExercise.id);
+  const exerciseSets = activeWorkout
+    ? activeWorkout.sets.filter((set) => set.exerciseId === currentWorkoutExercise.id)
+    : demoSetsByExercise[currentWorkoutExercise.id] ?? [];
+  const completedSets = activeWorkout?.sets.length
+    ?? Object.values(demoSetsByExercise).reduce((total, sets) => total + sets.length, 0);
+  return <div className="app-shell"><div className="ambient ambient-one" aria-hidden="true" /><div className="ambient ambient-two" aria-hidden="true" /><header className="topbar"><div className="brand-mark" aria-label="FORMA"><span className="brand-symbol">F</span><span>FORMA</span></div><div className="topbar-actions"><span className={`sync-pill ${online ? "is-online" : "is-offline"}`}><span className="sync-dot" aria-hidden="true" />{online ? "Online" : "Offline"}</span><button className="profile-button" type="button" aria-label="Abrir perfil" onClick={() => setProfileOpen(true)}>{session?.user.email?.slice(0, 1).toUpperCase() ?? "N"}</button></div></header><main className="app-content">{recoveryOperations.length > 0 ? <SyncRecoveryBanner count={recoveryOperations.length} onOpen={() => setRecoveryOpen(true)} /> : null}{nutritionOpen ? <NutritionView key={serverUser?.id ?? "demo"} ownerId={serverUser?.id ?? null} onBack={() => setNutritionOpen(false)} /> : activeTab === "home" ? <HomeView onStart={() => void startWorkout({ api: null, ...demoRoutines[0]! })} onCreate={() => openRoutineEditor()} onOpenRoutine={openRoutine} onOpenNutrition={() => setNutritionOpen(true)} /> : null}{activeTab === "routines" ? <RoutinesView demoPlans={demoPlans} routines={routines} loading={routinesLoading} message={routineMessage} catalogExercises={catalogExercises ?? []} onCreate={() => openRoutineEditor()} onEdit={openRoutineEditor} onOpenRoutine={openRoutine} /> : null}{activeTab === "train" ? <TrainView key={activeWorkout?.id ?? (demoSessionStarted ? "demo-activa" : "sin-sesion")} started={demoSessionStarted || activeWorkout !== null} activeSession={activeWorkout} workoutName={workoutName} currentExercise={currentWorkoutExercise} exerciseDetails={workoutExerciseDetails} nextExercise={workoutExercises[currentExerciseIndex + 1] ?? null} currentExerciseIndex={currentExerciseIndex} totalExercises={workoutExercises.length} exerciseSets={exerciseSets} completedSets={completedSets} message={workoutMessage} onStart={() => void startWorkout()} onCompleteSet={completeSet} onNextExercise={goToNextExercise} onFinish={() => void finishWorkout()} /> : null}{activeTab === "progress" ? <ProgressView sessions={localSessions} /> : null}{activeTab === "exercises" ? <ExercisesView query={exerciseQuery} onQueryChange={setExerciseQuery} exercises={filteredExercises} loading={catalogLoading} message={catalogMessage} source={catalogExercises === null ? "demo" : "api"} /> : null}</main><nav className="bottom-nav" aria-label="Navegación principal">{tabs.map((tab) => <button className={`nav-item ${activeTab === tab.id ? "is-active" : ""} ${tab.id === "train" ? "train-nav-item" : ""}`} type="button" key={tab.id} onClick={() => { setNutritionOpen(false); setActiveTab(tab.id); }}><span className={tab.id === "train" ? "train-nav-icon" : "nav-icon"}><Icon name={tab.icon} size={tab.id === "train" ? 21 : 19} /></span><span>{tab.label}</span></button>)}</nav>{profileOpen ? <ProfileDrawer session={session} serverUser={serverUser} authLoading={authLoading} authBusy={authBusy} authMessage={authMessage} serverIdentityLoading={serverIdentityLoading} serverIdentityMessage={serverIdentityMessage} email={email} password={password} supabaseConfigured={supabase !== null} onClose={() => setProfileOpen(false)} onSubmit={(event) => void handleSubmit(event)} onEmailChange={setEmail} onPasswordChange={setPassword} onSignOut={() => void handleSignOut()} /> : null}{selectedRoutine ? <RoutineDetail routine={selectedRoutine} catalogExercises={catalogExercises ?? []} onClose={() => setSelectedRoutine(null)} onStart={() => { setSelectedRoutine(null); void startWorkout(selectedRoutine); }} onEdit={selectedRoutine.demoPlan ? () => { setSelectedRoutine(null); openRoutineEditor(null, selectedRoutine.demoPlan); } : selectedRoutineForEdit === undefined || selectedRoutineForEdit === null ? undefined : () => { setSelectedRoutine(null); openRoutineEditor(selectedRoutineForEdit); }} /> : null}{routineEditorOpen ? <RoutineEditor routine={editingRoutine} demo={demoEditor} demoPlan={editingDemoPlan} message={routineMessage} exercises={demoEditor ? demoWorkoutExercises.map((exercise) => ({ id: exercise.id, name: exercise.name, description: exercise.muscle })) : catalogExercises ?? []} saving={routineSaving} online={online} onClose={() => setRoutineEditorOpen(false)} onSave={(name, description, exerciseIds) => void saveRoutine(name, description, exerciseIds)} /> : null}{recoveryOpen ? <SyncRecoveryDetails operations={recoveryOperations} onClose={() => setRecoveryOpen(false)} /> : null}</div>;
 }
 
-function HomeView({ onStart, onCreate, onOpenRoutine }: { onStart: () => void; onCreate: () => void; onOpenRoutine: (routine: RoutineSummary) => void }): ReactElement {
+function HomeView({ onStart, onCreate, onOpenRoutine, onOpenNutrition }: { onStart: () => void; onCreate: () => void; onOpenRoutine: (routine: RoutineSummary) => void; onOpenNutrition: () => void }): ReactElement {
   return <div className="screen-stack">
     <section className="welcome-block">
       <div><p className="eyebrow">MI ENTRENAMIENTO</p><h1>Entrená con intención.</h1><p className="screen-subtitle">Una sesión consistente vale más que una sesión perfecta.</p></div>
@@ -331,139 +465,345 @@ function HomeView({ onStart, onCreate, onOpenRoutine }: { onStart: () => void; o
     </section>
     <section className="quick-start-row"><div><span className="card-kicker">ÚLTIMA SESIÓN</span><strong>Torso · Hipertrofia</strong><small>Completada ayer · 48 min</small></div><button className="ghost-button" type="button" onClick={() => onOpenRoutine({ api: null, ...demoRoutines[1]! })}>Ver rutina <Icon name="chevron" size={15} /></button></section>
     <section><div className="section-heading"><div><p className="eyebrow">RESUMEN</p><h2>Tu semana</h2></div><button className="text-button" type="button">Ver todo <Icon name="chevron" size={15} /></button></div><div className="metric-grid"><MetricCard label="Sesiones" value="4" detail="+1 esta semana" accent="violet" /><MetricCard label="Volumen" value="12.480" detail="kg movidos" accent="blue" /><MetricCard label="Racha" value="12" detail="días seguidos" accent="orange" /></div></section>
+    <section className="nutrition-preview-card"><div><p className="eyebrow">NUTRICIÓN</p><h2>También cuenta lo que comés.</h2><p>Definí tus metas y llevá un registro simple de tus macros.</p></div><button className="secondary-button" type="button" onClick={onOpenNutrition}>Ver mi nutrición <Icon name="arrow" size={16} /></button></section>
     <section><div className="section-heading"><div><p className="eyebrow">TUS RUTINAS</p><h2>Seguí progresando</h2></div><button className="icon-button" type="button" aria-label="Agregar rutina" onClick={onCreate}><Icon name="plus" size={18} /></button></div><div className="routine-preview-list">{demoRoutines.slice(0, 2).map((routine) => <RoutinePreview key={routine.name} routine={routine} onOpen={() => onOpenRoutine({ api: null, ...routine })} />)}</div><small className="screen-footnote">Datos de demostración visual hasta conectar tu identidad y tu historial.</small></section>
   </div>;
 }
 
-function RoutinesView({ routines, loading, message, catalogExercises, onCreate, onEdit, onOpenRoutine }: { routines: ApiRoutine[] | null; loading: boolean; message: string | null; catalogExercises: ApiExercise[]; onCreate: () => void; onEdit: (routine: ApiRoutine) => void; onOpenRoutine: (routine: RoutineSummary) => void }): ReactElement {
+function RoutinesView({ demoPlans, routines, loading, message, catalogExercises, onCreate, onEdit, onOpenRoutine }: { demoPlans: DemoPlan[]; routines: ApiRoutine[] | null; loading: boolean; message: string | null; catalogExercises: ApiExercise[]; onCreate: () => void; onEdit: (routine: ApiRoutine) => void; onOpenRoutine: (routine: RoutineSummary) => void }): ReactElement {
   const real = routines !== null;
-  const cards: RoutineSummary[] = real ? routines.map((api, index) => ({ api, name: api.name, detail: `${api.exercises.length} ejercicios · revisión ${api.revision}`, accent: (["violet", "blue", "green", "orange"] as RoutineAccent[])[index % 4] ?? "violet", progress: 0, muscleGroup: "Plan personal", note: "Estructura lista para entrenar" })) : demoRoutines.map((demo) => ({ api: null, ...demo }));
-  return <div className="screen-stack"><section className="screen-header-row"><div><p className="eyebrow">PLANIFICACIÓN</p><h1>Mis rutinas</h1><p className="screen-subtitle">Elegí una sesión, revisá el plan y entrená sin perder el foco.</p></div><button className="round-action" type="button" aria-label="Crear rutina" onClick={onCreate}><Icon name="plus" size={20} /></button></section><div className="segmented-control" role="tablist" aria-label="Tipos de rutina"><button className="is-selected" type="button">Mis rutinas</button><button type="button">Programas</button></div>{loading ? <p className="status-line">Cargando rutinas online…</p> : null}{message ? <p className="form-error" role="alert">{message}</p> : null}{!real ? <span className="demo-label section-demo-label">Datos demo · edición online disponible al iniciar sesión</span> : null}<div className="routine-card-list">{cards.map((card, index) => <div className={`routine-card-wrap routine-card-${card.accent}`} key={card.api?.id ?? card.name}><button className="routine-card" type="button" onClick={() => onOpenRoutine(card)}><span className="routine-card-top"><span>{index === 0 ? "HOY" : "PLANTILLA"}</span><Icon name="chevron" size={17} /></span><span className="routine-card-art"><span>{card.muscleGroup}</span><Icon name="train" size={25} /></span><span className="routine-card-title">{card.name}</span><span className="routine-card-detail">{card.detail}</span><span className="routine-progress"><span style={{ width: `${card.progress}%` }} /></span><span className="routine-card-footer"><span>{card.progress > 0 ? `${card.progress}% completado` : "Lista para entrenar"}</span><span>{card.note}</span></span></button>{card.api !== null ? <button className="routine-edit-button" type="button" onClick={() => { if (card.api !== null) onEdit(card.api); }}>Editar estructura</button> : null}</div>)}</div>{real && routines.length === 0 ? <div className="empty-workout-card compact-empty"><p className="eyebrow">SIN RUTINAS</p><h2>Creá tu primera rutina.</h2><p>La estructura se edita online y queda protegida por tu identidad.</p><button className="primary-button" type="button" onClick={onCreate}>Crear rutina <Icon name="plus" size={17} /></button></div> : null}<small className="screen-footnote">{real ? `${catalogExercises.length} ejercicios oficiales disponibles para editar.` : "La demo usa datos de ejemplo; los entrenamientos reales se guardan localmente."}</small></div>;
+  const localCards: RoutineSummary[] = demoPlans.map((demoPlan) => ({
+    api: null, demoPlan, name: demoPlan.name, detail: `${demoPlan.exerciseIds.length} ejercicios`,
+    accent: "violet", progress: 0, muscleGroup: "Plan de prueba", note: "En este dispositivo",
+  }));
+  const cards: RoutineSummary[] = [...localCards, ...(real ? routines.map((api, index) => ({ api, name: api.name, detail: `${api.exercises.length} ejercicios · revisión ${api.revision}`, accent: (["violet", "blue", "green", "orange"] as RoutineAccent[])[index % 4] ?? "violet", progress: 0, muscleGroup: "Plan personal", note: "Estructura lista para entrenar" })) : demoRoutines.map((demo) => ({ api: null, ...demo })))];
+  return <div className="screen-stack"><section className="screen-header-row"><div><p className="eyebrow">PLANIFICACIÓN</p><h1>Mis rutinas</h1><p className="screen-subtitle">Elegí una sesión, revisá el plan y entrená sin perder el foco.</p></div><button className="round-action" type="button" aria-label="Crear rutina" onClick={onCreate}><Icon name="plus" size={20} /></button></section><div className="segmented-control" role="tablist" aria-label="Tipos de rutina"><button className="is-selected" type="button">Mis rutinas</button><button type="button">Programas</button></div>{loading ? <p className="status-line">Cargando rutinas online…</p> : null}{message ? <p className="form-error" role="alert">{message}</p> : null}{!real ? <span className="demo-label section-demo-label">Vista de prueba · podés crear un plan en este dispositivo</span> : null}<div className="routine-card-list">{cards.map((card, index) => <div className={`routine-card-wrap routine-card-${card.accent}`} key={card.demoPlan?.id ?? card.api?.id ?? card.name}><button className="routine-card" type="button" onClick={() => onOpenRoutine(card)}><span className="routine-card-top"><span>{card.demoPlan ? "PLAN LOCAL" : index === 0 ? "HOY" : "PLANTILLA"}</span><Icon name="chevron" size={17} /></span><span className="routine-card-art"><span>{card.muscleGroup}</span><Icon name="train" size={25} /></span><span className="routine-card-title">{card.name}</span><span className="routine-card-detail">{card.detail}</span><span className="routine-progress"><span style={{ width: `${card.progress}%` }} /></span><span className="routine-card-footer"><span>{card.progress > 0 ? `${card.progress}% completado` : "Lista para entrenar"}</span><span>{card.note}</span></span></button>{card.api !== null ? <button className="routine-edit-button" type="button" onClick={() => { if (card.api !== null) onEdit(card.api); }}>Editar estructura</button> : null}</div>)}</div>{real && routines.length === 0 ? <div className="empty-workout-card compact-empty"><p className="eyebrow">SIN RUTINAS</p><h2>Creá tu primera rutina.</h2><p>La estructura se edita online y queda protegida por tu identidad.</p><button className="primary-button" type="button" onClick={onCreate}>Crear rutina <Icon name="plus" size={17} /></button></div> : null}<small className="screen-footnote">{real ? `${catalogExercises.length} ejercicios oficiales disponibles para editar.` : "La demo usa datos de ejemplo; los entrenamientos reales se guardan localmente."}</small></div>;
 }
 
-function TrainView({ started, activeSession, workoutName, currentExercise, nextExercise, currentExerciseIndex, totalExercises, exerciseCompletedSets, demoSetValues, completedSets, message, onStart, onCompleteSet, onNextExercise, onFinish }: { started: boolean; activeSession: WorkoutSession | null; workoutName: string; currentExercise: WorkoutExercise; nextExercise: WorkoutExercise | null; currentExerciseIndex: number; totalExercises: number; exerciseCompletedSets: number; demoSetValues: WorkoutSetInput[]; completedSets: number; message: string | null; onStart: () => void; onCompleteSet: (loadKg: number, repetitions: number) => void; onNextExercise: () => void; onFinish: () => void }): ReactElement {
-  const [restSeconds, setRestSeconds] = useState(90);
-  const [restRunning, setRestRunning] = useState(false);
-  const [loadInput, setLoadInput] = useState("80");
-  const [repetitionsInput, setRepetitionsInput] = useState("8");
+function TrainView({ started, activeSession, workoutName, currentExercise, exerciseDetails, nextExercise, currentExerciseIndex, totalExercises, exerciseSets, completedSets, message, onStart, onCompleteSet, onNextExercise, onFinish }: { started: boolean; activeSession: WorkoutSession | null; workoutName: string; currentExercise: WorkoutExercise; exerciseDetails: ExerciseCard | undefined; nextExercise: WorkoutExercise | null; currentExerciseIndex: number; totalExercises: number; exerciseSets: WorkoutSetInput[]; completedSets: number; message: string | null; onStart: () => void; onCompleteSet: (loadKg: number, repetitions: number) => Promise<boolean>; onNextExercise: () => void; onFinish: () => void }): ReactElement {
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const workoutVideoRef = useRef<HTMLVideoElement>(null);
+  const resumeWorkoutVideo = useRef(false);
+  const [restDuration, setRestDuration] = useState(120);
+  const [restSeconds, setRestSeconds] = useState(120);
+  const [restDeadline, setRestDeadline] = useState<number | null>(null);
+  const restRunning = restDeadline !== null;
+  const [minimumSetRows, setMinimumSetRows] = useState(0);
+  const [setPending, setSetPending] = useState(false);
   const [inputError, setInputError] = useState<string | null>(null);
   useEffect(() => {
-    if (!restRunning || restSeconds <= 0) {
-      if (restSeconds === 0) setRestRunning(false);
-      return undefined;
+    if (restDeadline === null) return;
+    const deadline = restDeadline;
+    function refreshRest() {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setRestSeconds(remaining);
+      if (remaining === 0) setRestDeadline(null);
     }
-    const timer = window.setInterval(() => setRestSeconds((value) => Math.max(value - 1, 0)), 1000);
-    return () => window.clearInterval(timer);
-  }, [restRunning, restSeconds]);
+    const timer = window.setInterval(refreshRest, 200);
+    document.addEventListener("visibilitychange", refreshRest);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshRest);
+    };
+  }, [restDeadline]);
+
+  function startRest(seconds: number): void {
+    setRestSeconds(seconds);
+    setRestDeadline(Date.now() + seconds * 1000);
+  }
+
+  function changeRest(minutes: number): void {
+    const seconds = minutes * 60;
+    setRestDuration(seconds);
+    if (restRunning) startRest(seconds);
+    else setRestSeconds(seconds);
+  }
+
+  function toggleRest(): void {
+    if (restDeadline === null) {
+      startRest(restSeconds || restDuration);
+    } else {
+      setRestSeconds(Math.max(0, Math.ceil((restDeadline - Date.now()) / 1000)));
+      setRestDeadline(null);
+    }
+  }
+
   const actual = activeSession !== null;
-  function saveCurrentSet(): void {
-    const loadKg = Number(loadInput);
-    const repetitions = Number(repetitionsInput);
-    if (!Number.isFinite(loadKg) || loadKg < 0 || !Number.isInteger(repetitions) || repetitions <= 0) {
+  const targetSets = currentExercise.id ? currentExercise.targetSets ?? defaultWorkoutSets : 0;
+  const rowCount = Math.max(targetSets, exerciseSets.length, minimumSetRows);
+
+  async function saveCurrentSet(form: HTMLFormElement, index: number): Promise<void> {
+    if (setPending || index !== exerciseSets.length) return;
+    const values = new FormData(form);
+    const load = String(values.get("load") ?? "").trim();
+    const loadKg = Number(load);
+    const repetitions = Number(values.get("repetitions"));
+    if (!load || !Number.isFinite(loadKg) || loadKg < 0 || !Number.isInteger(repetitions) || repetitions <= 0) {
       setInputError("Usá una carga válida y reps enteras mayores a cero.");
       return;
     }
     setInputError(null);
-    onCompleteSet(loadKg, repetitions);
-    setRestSeconds(90);
-    setRestRunning(true);
+    setSetPending(true);
+    try {
+      if (await onCompleteSet(loadKg, repetitions)) {
+        startRest(restDuration);
+      }
+    } finally {
+      setSetPending(false);
+    }
   }
+  const demonstration = demonstrationFor(currentExercise);
   if (!started) return <div className="screen-stack"><section className="screen-header-row"><div><p className="eyebrow">MODO ENTRENAMIENTO</p><h1>Entrenar</h1><p className="screen-subtitle">Tu sesión queda guardada localmente mientras entrenás.</p></div><span className="offline-badge"><Icon name="bolt" size={14} /> Offline ready</span></section>{message ? <p className="status-line">{message}</p> : null}<section className="empty-workout-card"><div className="empty-icon"><Icon name="train" size={28} /></div><p className="eyebrow">LISTO PARA EMPEZAR</p><h2>Tu próxima sesión está acá.</h2><p>Iniciá una rutina y registrá cada serie sin depender de la conexión.</p><button className="primary-button" type="button" onClick={onStart}>Comenzar Piernas <Icon name="arrow" size={17} /></button></section><section className="training-principles"><span><Icon name="bolt" size={16} /><b>Offline first</b><small>Guardado inmediato</small></span><span><Icon name="clock" size={16} /><b>Descanso</b><small>Controlá tu ritmo</small></span><span><Icon name="check" size={16} /><b>Progreso</b><small>Serie por serie</small></span></section></div>;
-  const formattedRest = `${String(Math.floor(restSeconds / 60)).padStart(2, "0")}:${String(restSeconds % 60).padStart(2, "0")}`;
-  return <div className="screen-stack workout-screen"><section className="active-workout-header"><div><span className="live-label"><span className="live-dot" /> SESIÓN ACTIVA</span><h1>{workoutName.split(" · ")[0]} <span>{workoutName.includes(" · ") ? `· ${workoutName.split(" · ").slice(1).join(" · ")}` : ""}</span></h1><p className="screen-subtitle">{actual ? "Guardado local" : "32 min"} <span className="bullet">•</span> {completedSets}/8 series</p></div><button className="round-action" type="button" aria-label="Más opciones">•••</button></section>{message ? <p className="status-line">{message}</p> : null}<div className="workout-progress"><span style={{ width: `${Math.min((completedSets / 8) * 100, 100)}%` }} /></div><section className="exercise-log-card"><div className={`exercise-visual exercise-visual-${currentExercise.color}`}><div className="exercise-visual-orbit" aria-hidden="true" /><span className="exercise-visual-kicker">EJERCICIO {String(currentExerciseIndex + 1).padStart(2, "0")} / {String(totalExercises).padStart(2, "0")}</span><Icon name="train" size={36} /><span className="exercise-visual-muscle">{currentExercise.muscle}</span></div><div className="exercise-log-heading"><div><span className="exercise-index">{String(currentExerciseIndex + 1).padStart(2, "0")}</span><div><h2>{currentExercise.name}</h2><p>{actual ? "Catálogo oficial" : currentExercise.muscle}</p></div></div><span className="exercise-status"><Icon name="check" size={14} /> {Math.min(exerciseCompletedSets, 3)}/3</span></div><div className="last-performance"><span>ÚLTIMA VEZ</span><strong>76 kg × 8</strong><small>Objetivo de hoy · 80 kg × 8</small></div><div className="set-entry"><label>Carga (kg)<input inputMode="decimal" min="0" step="0.5" type="number" value={loadInput} onChange={(event) => { setLoadInput(event.target.value); setInputError(null); }} /></label><label>Repeticiones<input inputMode="numeric" min="1" step="1" type="number" value={repetitionsInput} onChange={(event) => { setRepetitionsInput(event.target.value); setInputError(null); }} /></label><button className="primary-button set-save-button" type="button" onClick={saveCurrentSet}><Icon name="check" size={16} /> Guardar serie</button></div>{inputError ? <p className="form-error" role="alert">{inputError}</p> : null}<div className="set-header"><span>Serie</span><span>Kg</span><span>Reps</span><span /></div>{[1, 2, 3].map((set) => { const completedSet = actual ? activeSession.sets.filter((item) => item.exerciseId === currentExercise.id)[set - 1] ?? null : currentExerciseIndex === 0 ? demoSetValues[set - 1] ?? null : null; const load = completedSet?.loadKg ?? null; const reps = completedSet?.repetitions ?? null; return <div className={`set-row ${completedSet ? "is-complete" : ""}`} key={set}><span className="set-number">{set}</span><span>{load ?? "—"}</span><span>{reps ?? "—"}</span><button className="set-check" type="button" onClick={saveCurrentSet} aria-label={`Completar serie ${set}`}><Icon name="check" size={15} /></button></div>; })}<button className="add-set-button" type="button" onClick={saveCurrentSet}><Icon name="plus" size={15} /> Agregar serie</button><button className="secondary-button finish-button" type="button" onClick={onFinish}>Finalizar sesión</button></section><section className={`rest-card ${restRunning ? "is-running" : ""}`}><div><span className="card-kicker">DESCANSO</span><strong>{formattedRest}</strong><small>{restRunning ? "Recuperando para la próxima serie" : "Listo cuando termines la serie"}</small></div><button className="rest-toggle" type="button" onClick={() => { if (restSeconds === 0) setRestSeconds(90); setRestRunning((value) => !value); }}>{restRunning ? "Pausar" : "Iniciar"}</button></section>{currentExerciseIndex < totalExercises - 1 && nextExercise !== null ? <button className="next-exercise-card" type="button" onClick={onNextExercise}><span className="card-kicker">SIGUIENTE EJERCICIO</span><div><h2>{nextExercise.name}</h2><p>{nextExercise.muscle} · avanzar cuando termines tus series</p></div><Icon name="chevron" size={18} /></button> : <section className="next-exercise-card is-complete"><span className="card-kicker">PLAN COMPLETO</span><div><h2>Último ejercicio de la sesión</h2><p>Revisá tus series y finalizá cuando estés listo.</p></div><Icon name="check" size={18} /></section>}</div>;
+  return <div className="screen-stack workout-screen"><section className="active-workout-header"><div><span className="live-label"><span className="live-dot" /> SESIÓN ACTIVA</span><h1>{workoutName.split(" · ")[0]} <span>{workoutName.includes(" · ") ? `· ${workoutName.split(" · ").slice(1).join(" · ")}` : ""}</span></h1><p className="screen-subtitle">{actual ? "Guardado local" : "Sesión demo"} <span className="bullet">•</span> {completedSets} {completedSets === 1 ? "serie" : "series"}</p></div><WorkoutStopwatch /></section>{message ? <p className="status-line">{message}</p> : null}<div className="workout-progress"><span style={{ width: `${Math.min(((currentExerciseIndex + 1) / Math.max(totalExercises, 1)) * 100, 100)}%` }} /></div><section className="exercise-log-card">{demonstration ?
+    <ExerciseRepetition key={currentExercise.id} demonstration={demonstration} videoRef={workoutVideoRef} compact /> :
+    <div className={`exercise-visual exercise-visual-${currentExercise.color}`}><div className="exercise-visual-orbit" aria-hidden="true" /><span className="exercise-visual-kicker">EJERCICIO {String(currentExerciseIndex + 1).padStart(2, "0")} / {String(totalExercises).padStart(2, "0")}</span><Icon name="train" size={36} /><span className="exercise-visual-muscle">{currentExercise.muscle}</span></div>}<div className="exercise-log-heading"><div><span className="exercise-index">{String(currentExerciseIndex + 1).padStart(2, "0")}</span><div><h2>{currentExercise.name}</h2><p>{actual ? "Catálogo oficial" : currentExercise.muscle}</p></div></div><span className="exercise-status">{exerciseSets.length} {exerciseSets.length === 1 ? "serie" : "series"}</span></div>{exerciseDetails && <WorkoutTechnique key={exerciseDetails.id} education={exerciseDetails.education} onOpen={() => {
+      const video = workoutVideoRef.current;
+      resumeWorkoutVideo.current = video !== null && !video.paused;
+      video?.pause();
+      setDetailsOpen(true);
+    }} />}{exerciseDetails && detailsOpen && <ExerciseDetails exercise={exerciseDetails} onClose={() => {
+      setDetailsOpen(false);
+      if (resumeWorkoutVideo.current) void workoutVideoRef.current?.play().catch(() => undefined);
+      resumeWorkoutVideo.current = false;
+    }} />}
+    <div className="set-header" aria-hidden="true"><span>Serie</span><span>Kg</span><span>Reps</span><span /></div>
+    {Array.from({ length: rowCount }, (_, index) => {
+      const set = exerciseSets[index];
+      const number = index + 1;
+      if (set) return <div className="set-row" key={`${currentExercise.id}-${index}`}>
+        <span className="set-number">{number}</span><span>{set.loadKg}</span><span>{set.repetitions}</span>
+        <span className="set-confirmed" role="img" aria-label={`Serie ${number} completada`}><Icon name="check" size={18} /></span>
+      </div>;
+
+      return <form className="set-entry set-entry-inline" key={`${currentExercise.id}-${index}`} onSubmit={(event) => {
+        event.preventDefault();
+        void saveCurrentSet(event.currentTarget, index);
+      }}>
+        <span className="set-number">{number}</span>
+        <input name="load" aria-label={`Carga (kg) de la serie ${number}`} placeholder="kg" inputMode="decimal" min="0" step="any" type="number" required onChange={() => setInputError(null)} />
+        <input name="repetitions" aria-label={`Repeticiones de la serie ${number}`} placeholder="reps" inputMode="numeric" min="1" step="1" type="number" required onChange={() => setInputError(null)} />
+        <button className="primary-button set-complete-button" type="submit" disabled={setPending || index !== exerciseSets.length} aria-label={`Completar serie ${number}`}><Icon name="check" size={19} /></button>
+      </form>;
+    })}
+    <button className="secondary-button add-workout-set" type="button" disabled={!currentExercise.id} onClick={() => {
+      setMinimumSetRows((previous) => Math.max(previous, rowCount) + 1);
+    }}><Icon name="plus" size={17} /> Agregar serie</button>
+    {inputError && <p className="form-error" role="alert">{inputError}</p>}
+    <WorkoutRest seconds={restSeconds} running={restRunning} minutes={restDuration / 60} onChange={changeRest} onToggle={toggleRest} />
+    <button className="secondary-button finish-button" type="button" disabled={setPending} onClick={onFinish}>Finalizar sesión</button></section>{currentExerciseIndex < totalExercises - 1 && nextExercise !== null ? <button className="next-exercise-card" type="button" disabled={setPending} onClick={() => {
+      setMinimumSetRows(0);
+      setInputError(null);
+      onNextExercise();
+    }}><span className="card-kicker">SIGUIENTE EJERCICIO</span><div><h2>{nextExercise.name}</h2><p>{nextExercise.muscle} · avanzar cuando termines tus series</p></div><Icon name="chevron" size={18} /></button> : <section className="next-exercise-card is-complete"><span className="card-kicker">PLAN COMPLETO</span><div><h2>Último ejercicio de la sesión</h2><p>Revisá tus series y finalizá cuando estés listo.</p></div><Icon name="check" size={18} /></section>}</div>;
+}
+
+function formatWorkoutTime(seconds: number): string {
+  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function WorkoutRest({ seconds, running, minutes, onChange, onToggle }: {
+  seconds: number; running: boolean; minutes: number; onChange: (minutes: number) => void; onToggle: () => void;
+}): ReactElement {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [custom, setCustom] = useState("");
+  const remaining = Math.min(100, (seconds / (minutes * 60)) * 100);
+
+  function applyDuration(value: number): void {
+    onChange(value);
+    setSettingsOpen(false);
+  }
+
+  return <section className={`rest-card ${running ? "is-running" : ""}`} aria-label="Descanso entre series">
+    <div className="rest-heading">
+      <span className="rest-icon" aria-hidden="true"><Icon name="clock" size={20} /></span>
+      <div className="rest-readout"><span className="card-kicker">DESCANSO</span><strong role="timer">{formatWorkoutTime(seconds)}</strong></div>
+      <button className="rest-toggle rest-play" type="button" onClick={onToggle} aria-label={running ? "Pausar descanso" : "Iniciar descanso"}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">{running
+          ? <path d="M4 3h3v10H4zm5 0h3v10H9z" />
+          : <path d="M5 2.5v11L13 8z" />}</svg>
+      </button>
+    </div>
+    <div className="rest-progress" aria-hidden="true"><span style={{ width: `${remaining}%` }} /></div>
+    <button className="rest-duration" type="button" aria-expanded={settingsOpen} aria-controls="workout-rest-settings" onClick={() => {
+      if (!settingsOpen) setCustom(String(minutes));
+      setSettingsOpen(!settingsOpen);
+    }}><span>Duración del descanso</span><strong>{minutes} min <Icon name="chevron" size={14} /></strong></button>
+    <div className="rest-settings" id="workout-rest-settings" hidden={!settingsOpen}>
+      <div className="rest-presets" role="group" aria-label="Duración del descanso">
+        {[2, 3].map((value) => <button key={value} className="rest-toggle" type="button" aria-pressed={minutes === value} onClick={() => applyDuration(value)}>{value} min</button>)}
+      </div>
+      <form className="rest-custom" onSubmit={(event) => {
+        event.preventDefault();
+        const value = Number(custom);
+        if (Number.isInteger(value) && value >= 1 && value <= 60) applyDuration(value);
+      }}>
+        <label>Minutos personalizados<input type="number" inputMode="numeric" min="1" max="60" step="1" required value={custom} onChange={(event) => setCustom(event.target.value)} /></label>
+        <button className="rest-toggle" type="submit">Aplicar</button>
+      </form>
+    </div>
+  </section>;
+}
+
+function WorkoutStopwatch(): ReactElement {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [clock, setClock] = useState(0);
+
+  useEffect(() => {
+    if (startedAt === null) return;
+    const update = () => setClock(Date.now());
+    const timer = window.setInterval(update, 200);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, [startedAt]);
+
+  const seconds = Math.floor((elapsed + (startedAt === null ? 0 : Math.max(0, clock - startedAt))) / 1000);
+  return <>
+    <button className="round-action stopwatch-trigger" type="button" aria-label="Abrir cronómetro" aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}><Icon name="clock" size={21} /></button>
+    <dialog ref={dialog} className="workout-stopwatch" aria-label="Cronómetro">
+      <div className="stopwatch-heading"><h2>Cronómetro</h2><button className="close-button" type="button" aria-label="Cerrar cronómetro" onClick={() => dialog.current?.close()}>×</button></div>
+      <strong role="timer">{formatWorkoutTime(seconds)}</strong>
+      <div className="stopwatch-actions">
+        <button className="primary-button" type="button" onClick={() => {
+          const now = Date.now();
+          if (startedAt === null) {
+            setClock(now);
+            setStartedAt(now);
+          } else {
+            setElapsed(elapsed + Math.max(0, now - startedAt));
+            setStartedAt(null);
+          }
+        }}>{startedAt === null ? elapsed > 0 ? "Continuar" : "Iniciar" : "Pausar"}</button>
+        <button className="secondary-button" type="button" onClick={() => { setStartedAt(null); setElapsed(0); }}>Reiniciar</button>
+      </div>
+    </dialog>
+  </>;
 }
 
 function RoutineDetail({ routine, catalogExercises, onClose, onStart, onEdit }: { routine: RoutineSummary; catalogExercises: ApiExercise[]; onClose: () => void; onStart: () => void; onEdit: (() => void) | undefined }): ReactElement {
   const activeExercises = routine.api?.exercises.filter((item) => item.status === "active").sort((a, b) => a.position - b.position) ?? [];
-  const names = activeExercises.length > 0 ? activeExercises.map((item) => catalogExercises.find((exercise) => exercise.id === item.exerciseId)?.name ?? "Ejercicio oficial") : ["Sentadilla con barra", "Prensa inclinada", "Peso muerto rumano", "Extensión de piernas"];
-  return <div className="drawer-layer" role="presentation" onClick={onClose}><section className={`routine-detail routine-detail-${routine.accent}`} role="dialog" aria-modal="true" aria-labelledby="routine-detail-title" onClick={(event) => event.stopPropagation()}><div className="routine-detail-hero"><button className="close-button routine-detail-close" type="button" onClick={onClose} aria-label="Cerrar detalle">×</button><div className="routine-detail-art"><Icon name="train" size={39} /><span>{routine.muscleGroup}</span></div><span className="card-kicker">{routine.note.toUpperCase()}</span><h2 id="routine-detail-title">{routine.name}</h2><p>{routine.detail}</p></div><div className="routine-detail-body"><div className="routine-detail-stats"><span><strong>{names.length}</strong><small>ejercicios</small></span><span><strong>52</strong><small>minutos</small></span><span><strong>{routine.progress || "—"}</strong><small>{routine.progress ? "% completado" : "progreso"}</small></span></div><div className="section-heading compact"><div><p className="eyebrow">ESTRUCTURA</p><h3>Tu sesión</h3></div><span className="detail-session-note">{routine.progress > 0 ? "En progreso" : "Lista"}</span></div><div className="routine-exercise-list">{names.slice(0, 6).map((name, index) => <div className="routine-exercise-row" key={`${name}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{name}</strong><small>{index === 0 ? "Principal · 4 series" : "Accesorio · 3 series"}</small></div><Icon name="chevron" size={16} /></div>)}</div><div className="routine-detail-actions"><button className="primary-button full-button" type="button" onClick={onStart}>Comenzar sesión <Icon name="arrow" size={17} /></button>{onEdit ? <button className="secondary-button full-button" type="button" onClick={onEdit}>Editar estructura</button> : null}</div><p className="security-note">La estructura de la rutina se modifica online. El registro de cada serie se guarda localmente durante el entrenamiento.</p></div></section></div>;
+  const names = routine.demoPlan ? buildWorkoutExercises(routine, null).map((exercise) => exercise.name) : activeExercises.length > 0 ? activeExercises.map((item) => catalogExercises.find((exercise) => exercise.id === item.exerciseId)?.name ?? "Ejercicio oficial") : ["Sentadilla con barra", "Prensa inclinada", "Peso muerto rumano", "Extensión de piernas"];
+  return <div className="drawer-layer" role="presentation" onClick={onClose}><section className={`routine-detail routine-detail-${routine.accent}`} role="dialog" aria-modal="true" aria-labelledby="routine-detail-title" onClick={(event) => event.stopPropagation()}><div className="routine-detail-hero"><button className="close-button routine-detail-close" type="button" onClick={onClose} aria-label="Cerrar detalle">×</button><div className="routine-detail-art"><Icon name="train" size={39} /><span>{routine.muscleGroup}</span></div><span className="card-kicker">{routine.note.toUpperCase()}</span><h2 id="routine-detail-title">{routine.name}</h2><p>{routine.detail}</p></div><div className="routine-detail-body"><div className="routine-detail-stats"><span><strong>{names.length}</strong><small>ejercicios</small></span>{!routine.demoPlan && <span><strong>52</strong><small>minutos</small></span>}<span><strong>{routine.progress || "—"}</strong><small>{routine.progress ? "% completado" : "progreso"}</small></span></div><div className="section-heading compact"><div><p className="eyebrow">ESTRUCTURA</p><h3>Tu sesión</h3></div><span className="detail-session-note">{routine.progress > 0 ? "En progreso" : "Lista"}</span></div><div className="routine-exercise-list">{(routine.demoPlan ? names : names.slice(0, 6)).map((name, index) => <div className="routine-exercise-row" key={`${name}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{name}</strong><small>{routine.demoPlan ? `${defaultWorkoutSets} series` : index === 0 ? "Principal · 4 series" : "Accesorio · 3 series"}</small></div><Icon name="chevron" size={16} /></div>)}</div><div className="routine-detail-actions"><button className="primary-button full-button" type="button" onClick={onStart}>Comenzar sesión <Icon name="arrow" size={17} /></button>{onEdit ? <button className="secondary-button full-button" type="button" onClick={onEdit}>Editar estructura</button> : null}</div>{routine.demoPlan?.description && <p>{routine.demoPlan.description}</p>}<p className="security-note">{routine.demoPlan ? "Plan de prueba guardado en este dispositivo." : "La estructura de la rutina se modifica online. El registro de cada serie se guarda localmente durante el entrenamiento."}</p></div></section></div>;
 }
 
-function ExercisesView({ query, onQueryChange, exercises, loading, message, source }: { query: string; onQueryChange: (value: string) => void; exercises: ExerciseCard[]; loading: boolean; message: string | null; source: "demo" | "api" }): ReactElement { const [selected, setSelected] = useState<ExerciseCard | null>(null); return <div className="screen-stack"><section className="screen-header-row"><div><p className="eyebrow">BIBLIOTECA OFICIAL</p><h1>Ejercicios</h1><p className="screen-subtitle">Técnica, objetivos y errores frecuentes en una sola ficha.</p></div><button className="round-action" type="button" aria-label="Agregar ejercicio"><Icon name="plus" size={20} /></button></section><div className="catalog-meta"><span className={source === "api" ? "live-label" : "demo-label"}>{source === "api" ? "Catálogo online" : "Datos demo"}</span>{loading ? <span className="muted">Actualizando…</span> : null}</div>{message ? <p className="form-error" role="alert">{message}</p> : null}<label className="search-field"><Icon name="search" size={18} /><input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Buscar ejercicio o músculo" /></label><div className="filter-row"><button className="filter-chip is-selected" type="button">Todos</button><button className="filter-chip" type="button">Pecho</button><button className="filter-chip" type="button">Espalda</button><button className="filter-chip" type="button">Piernas</button></div><div className="exercise-library-list">{exercises.map((exercise) => <button className="library-exercise" type="button" key={exercise.id} onClick={() => setSelected(exercise)}><span className={`exercise-avatar avatar-${exercise.color}`}><Icon name="train" size={20} /></span><span className="library-exercise-copy"><strong>{exercise.name}</strong><small>{exercise.muscle}</small></span><span className="exercise-rank">{exercise.rank}<Icon name="chevron" size={15} /></span></button>)}</div>{exercises.length === 0 ? <p className="empty-search">No encontramos ejercicios con esa búsqueda.</p> : null}{selected ? <ExerciseDetails exercise={selected} source={source} onClose={() => setSelected(null)} /> : null}</div>; }
+function ExercisesView({ query, onQueryChange, exercises, loading, message, source }: { query: string; onQueryChange: (value: string) => void; exercises: ExerciseCard[]; loading: boolean; message: string | null; source: "demo" | "api" }): ReactElement { const [selected, setSelected] = useState<ExerciseCard | null>(null); return <div className="screen-stack"><section className="screen-header-row"><div><p className="eyebrow">BIBLIOTECA OFICIAL</p><h1>Ejercicios</h1><p className="screen-subtitle">Técnica, objetivos y errores frecuentes en una sola ficha.</p></div><button className="round-action" type="button" aria-label="Agregar ejercicio"><Icon name="plus" size={20} /></button></section><div className="catalog-meta"><span className={source === "api" ? "live-label" : "demo-label"}>{source === "api" ? "Catálogo online" : "Datos demo"}</span>{loading ? <span className="muted">Actualizando…</span> : null}</div>{message ? <p className="form-error" role="alert">{message}</p> : null}<label className="search-field"><Icon name="search" size={18} /><input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Buscar ejercicio o músculo" /></label><div className="filter-row"><button className="filter-chip is-selected" type="button">Todos</button><button className="filter-chip" type="button">Pecho</button><button className="filter-chip" type="button">Espalda</button><button className="filter-chip" type="button">Piernas</button></div><div className="exercise-library-list">{exercises.map((exercise) => <button className="library-exercise" type="button" key={exercise.id} onClick={() => setSelected(exercise)}><span className={`exercise-avatar avatar-${exercise.color}`}><Icon name="train" size={20} /></span><span className="library-exercise-copy"><strong>{exercise.name}</strong><small>{exercise.muscle}</small></span><span className="exercise-rank">{exercise.rank}<Icon name="chevron" size={15} /></span></button>)}</div>{exercises.length === 0 ? <p className="empty-search">No encontramos ejercicios con esa búsqueda.</p> : null}{selected ? <ExerciseDetails exercise={selected} onClose={() => setSelected(null)} /> : null}</div>; }
 
-function ExerciseDetails({ exercise, source, onClose }: { exercise: ExerciseCard; source: "demo" | "api"; onClose: () => void }): ReactElement { const info = exercise.education; return <div className="drawer-layer" role="presentation" onClick={onClose}><section className="exercise-details" role="dialog" aria-modal="true" aria-labelledby="exercise-detail-title" onClick={(event) => event.stopPropagation()}><ExerciseMediaPreview exercise={exercise} source={source} /><div className="drawer-header"><div><p className="eyebrow">{info.difficulty} · {info.equipment}</p><h2 id="exercise-detail-title">{exercise.name}</h2></div><button className="close-button" type="button" onClick={onClose} aria-label="Cerrar ficha">×</button></div><div className="detail-highlights"><span><b>{info.targetMuscles[0] ?? "Músculo principal"}</b><small>Foco principal</small></span><span><b>{info.equipment}</b><small>Equipamiento</small></span></div><DetailSection title="Ejecución técnica"><p>{info.instructions}</p></DetailSection><DetailSection title="Músculos principales"><div className="tag-list">{info.targetMuscles.map((item) => <span key={item}>{item}</span>)}</div></DetailSection><DetailSection title="Músculos secundarios"><div className="tag-list muted-tags">{info.secondaryMuscles.map((item) => <span key={item}>{item}</span>)}</div></DetailSection><DetailSection title="Errores frecuentes"><ul>{info.commonMistakes.map((item) => <li key={item}>{item}</li>)}</ul></DetailSection><DetailSection title="Cues de seguridad"><ul className="safety-list">{info.safetyNotes.map((item) => <li key={item}>{item}</li>)}</ul></DetailSection><p className="security-note">La ficha es educativa y no reemplaza una evaluación individual de un profesor de educación física o profesional de la salud.</p></section></div>; }
+function WorkoutTechnique({ education, onOpen }: { education: ExerciseEducation; onOpen: () => void }): ReactElement {
+  const instructions = education.instructions.trim();
+  const summary = instructions.match(/^.+?[.!?](?:\s+.+?[.!?])?(?=\s|$)/u)?.[0] ?? instructions;
 
-function ExerciseMediaPreview({ exercise, source }: { exercise: ExerciseCard; source: "demo" | "api" }): ReactElement {
-  const [activeView, setActiveView] = useState<"animation" | "muscles" | "angles">("animation");
-  const [activePhase, setActivePhase] = useState<"start" | "descent" | "return">("descent");
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const mediaSpec = getExerciseMediaSpec(exercise);
-  const isSquat = mediaSpec !== null;
-  const muscleLabel = exercise.education.targetMuscles[0] ?? "Músculo principal";
-  const viewLabels = { animation: "Animación", muscles: "Músculos", angles: "Análisis 3D" } as const;
-  const phaseLabels = { start: "de inicio", descent: "de descenso", return: "de regreso" } as const;
-  const phases = mediaSpec?.animationPhases ?? ["start", "descent", "return"];
+  return <section className="workout-technique-panel" aria-label="Guía rápida del ejercicio">
+    <h3>Cómo hacerlo</h3>
+    <p>{summary}</p>
+    {education.commonMistakes.length > 0 && <details>
+      <summary>Errores frecuentes</summary>
+      <ul>{education.commonMistakes.map((item, index) => <li key={index}>{item}</li>)}</ul>
+    </details>}
+    <button className="secondary-button workout-technique" type="button" onClick={onOpen}>Ver técnica</button>
+  </section>;
+}
+
+function ExerciseDetails({ exercise, onClose }: { exercise: ExerciseCard; onClose: () => void }): ReactElement {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const info = exercise.education;
+  const demonstration = demonstrationFor(exercise);
 
   useEffect(() => {
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setPrefersReducedMotion(query.matches);
-    update();
-    query.addEventListener?.("change", update);
-    return () => query.removeEventListener?.("change", update);
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => dialog?.close();
   }, []);
 
-  useEffect(() => {
-    if (!isSquat || activeView !== "animation" || !isPlaying || prefersReducedMotion) return;
-    const timer = window.setInterval(() => {
-      setActivePhase((current) => phases[(phases.indexOf(current) + 1) % phases.length]!);
-    }, 1100);
-    return () => window.clearInterval(timer);
-  }, [activeView, isPlaying, isSquat, prefersReducedMotion, phases]);
+  return <dialog
+    ref={dialogRef}
+    className="exercise-details"
+    aria-labelledby="exercise-detail-title"
+    onCancel={(event) => {
+      event.preventDefault();
+      onClose();
+    }}
+  >
+    <header className="drawer-header exercise-details-header">
+      <div><p className="eyebrow">{info.difficulty} · {info.equipment}</p><h2 id="exercise-detail-title">{exercise.name}</h2></div>
+      <button className="close-button" type="button" onClick={onClose} aria-label="Cerrar ficha">×</button>
+    </header>
+    {demonstration === "squat" && <SquatPreview />}
+    {demonstration && demonstration !== "squat" && <section className="squat-preview" aria-label={`Demostración de ${exercise.name.toLocaleLowerCase("es")}`}>
+      <p className="exercise-detail-kicker">ANIMACIÓN 3D · SE REPRODUCE AUTOMÁTICAMENTE</p>
+      <ExerciseRepetition demonstration={demonstration} showViewControls muscles={[...info.targetMuscles, ...info.secondaryMuscles]} />
+    </section>}
+    <DetailSection title="Ejecución técnica"><p>{info.instructions}</p></DetailSection>
+    <DetailSection title="Músculos principales"><div className="tag-list">{info.targetMuscles.map((item) => <span key={item}>{item}</span>)}</div></DetailSection>
+    <DetailSection title="Músculos secundarios"><div className="tag-list muted-tags">{info.secondaryMuscles.map((item) => <span key={item}>{item}</span>)}</div></DetailSection>
+    <DetailSection title="Errores frecuentes"><ul>{info.commonMistakes.map((item) => <li key={item}>{item}</li>)}</ul></DetailSection>
+    <DetailSection title="Seguridad"><ul className="safety-list">{info.safetyNotes.map((item) => <li key={item}>{item}</li>)}</ul></DetailSection>
+    <p className="security-note">La ficha es educativa y no reemplaza una evaluación individual.</p>
+  </dialog>;
+}
 
-  const mediaCaption = !isSquat
-    ? "Este recurso es un prototipo visual de validación; el asset técnico final se incorporará después de la revisión profesional."
-    : activeView === "animation"
-      ? prefersReducedMotion ? "La animación está reducida según la preferencia de movimiento de tu dispositivo." : "Loop técnico de 3,3 s: inicio, descenso y regreso. Pausalo para inspeccionar una fase."
-      : activeView === "muscles"
-        ? "Mapa 3D orientativo: cuádriceps, glúteos e isquiosurales participan con distinta demanda según la técnica y la carga."
-        : "Análisis 3D orientativo: observá la trayectoria de la barra y la relación entre rodilla, cadera y mediopié. No representa grados universales ni una evaluación individual.";
+function DetailSection({ title, children }: { title: string; children: ReactNode }): ReactElement {
+  return <section className="detail-section"><h3 className="eyebrow">{title}</h3>{children}</section>;
+}
 
-  return <div className={`exercise-media-panel media-${exercise.color} ${isSquat ? "is-squat-media" : ""}`}>
-    <div className="exercise-media-topline"><span className="exercise-detail-kicker">{source === "api" ? "CONTENIDO OFICIAL" : isSquat ? "PILOTO VISUAL 3D" : "PROTOTIPO VISUAL"}</span><span className="media-status"><span className="media-status-dot" /> Listo offline</span></div>
-    <div className="exercise-motion-stage" aria-label={`Vista técnica de ${exercise.name}`}>
-      <span className="motion-grid motion-grid-one" /><span className="motion-grid motion-grid-two" /><span className="motion-axis" />
-      {isSquat && mediaSpec && activeView === "animation" ? <div className="squat-media-frame" key={`animation-${activePhase}`}><img className="squat-media-image" src={`/media/exercises/${mediaSpec.slug}/animation-${activePhase}.webp`} alt={`Sentadilla con barra: fase ${phaseLabels[activePhase]}`} /></div> : null}
-      {isSquat && mediaSpec && activeView === "muscles" ? <div className="squat-media-frame squat-muscle-frame"><img className="squat-media-image" src={`/media/exercises/${mediaSpec.slug}/${mediaSpec.muscleMapFile}`} alt="Mapa 3D de músculos activos en sentadilla con barra" /></div> : null}
-      {isSquat && mediaSpec && activeView === "angles" ? <div className="squat-media-frame squat-technical-frame"><img className="squat-media-image" src={`/media/exercises/${mediaSpec.slug}/${mediaSpec.technicalViewFile}`} alt="Análisis 3D de trayectoria de barra y alineación de cadera, rodilla y tobillo" /></div> : null}
-      {!isSquat ? <ExerciseMotionIllustration color={exercise.color} /> : null}
-      <span className="motion-muscle-label">{activeView === "muscles" ? "Cuádriceps · Glúteos · Isquios" : muscleLabel}</span><span className="motion-badge">{activeView === "angles" ? "ANÁLISIS 3D" : activeView === "muscles" ? "MAPA 3D" : "TÉCNICA"}</span>
-    </div>
-    {isSquat ? <div className="motion-phase-row" aria-label="Fases del movimiento"><span>FASES</span><button className={activePhase === "start" ? "is-active" : ""} type="button" onClick={() => setActivePhase("start")}>Inicio</button><button className={activePhase === "descent" ? "is-active" : ""} type="button" onClick={() => setActivePhase("descent")}>Descenso</button><button className={activePhase === "return" ? "is-active" : ""} type="button" onClick={() => setActivePhase("return")}>Regreso</button>{activeView === "animation" ? <button className="motion-play-toggle" type="button" aria-pressed={isPlaying && !prefersReducedMotion} onClick={() => setIsPlaying((value) => !value)}>{isPlaying && !prefersReducedMotion ? "Pausar" : "Reproducir"}</button> : null}</div> : null}
-    <div className="exercise-media-tabs" role="tablist" aria-label="Vistas del ejercicio">{(Object.keys(viewLabels) as Array<keyof typeof viewLabels>).map((view) => <button className={activeView === view ? "is-active" : ""} type="button" role="tab" aria-selected={activeView === view} key={view} onClick={() => setActiveView(view)}>{viewLabels[view]}</button>)}</div><p className="media-caption">{mediaCaption}</p>
+function RoutineEditor({ routine, demo, demoPlan, message, exercises, saving, online, onClose, onSave }: {
+  routine: ApiRoutine | null;
+  demo: boolean;
+  demoPlan: DemoPlan | null;
+  message: string | null;
+  exercises: Pick<ApiExercise, "id" | "name" | "description">[];
+  saving: boolean;
+  online: boolean;
+  onClose: () => void;
+  onSave: (name: string, description: string, exerciseIds: string[]) => void;
+}): ReactElement {
+  const creating = routine === null && demoPlan === null;
+  const [name, setName] = useState(demoPlan?.name ?? routine?.name ?? "");
+  const [description, setDescription] = useState(demoPlan?.description ?? routine?.description ?? "");
+  const [selected, setSelected] = useState<string[]>(() => demoPlan?.exerciseIds ?? routine?.exercises
+    .filter((item) => item.status === "active")
+    .sort((a, b) => a.position - b.position)
+    .map((item) => item.exerciseId) ?? []);
+  const toggle = (id: string) => setSelected((current) => current.includes(id)
+    ? current.filter((item) => item !== id)
+    : [...current, id]);
+
+  return <div className="drawer-layer" role="presentation" onClick={onClose}>
+    <section className="routine-editor" role="dialog" aria-modal="true" aria-labelledby="routine-editor-title" onClick={(event) => event.stopPropagation()}>
+      <div className="drawer-header">
+        <div><p className="eyebrow">{demo ? "PLAN LOCAL" : creating ? "NUEVA RUTINA" : "EDICIÓN ONLINE"}</p>
+          <h2 id="routine-editor-title">{creating ? "Crear rutina" : "Editar rutina"}</h2></div>
+        <button className="close-button" type="button" onClick={onClose} aria-label="Cerrar editor">×</button>
+      </div>
+      <label>Nombre<input value={name} onChange={(event) => setName(event.target.value)} maxLength={120} placeholder="Ej. Piernas · Fuerza" /></label>
+      <label>Descripción<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={1000} placeholder="Objetivo y notas de la rutina" /></label>
+      <div className="editor-section">
+        <div className="section-heading compact"><div><p className="eyebrow">ESTRUCTURA</p><h3>{demo ? "Elegí los ejercicios en orden" : "Ejercicios oficiales"}</h3></div>
+          <span className="editor-count">{selected.length}</span></div>
+        {exercises.length === 0 ? <p className="muted">Necesitás catálogo online para agregar ejercicios.</p> : <div className="exercise-picker">
+          {exercises.map((exercise) => {
+            const position = selected.indexOf(exercise.id);
+            return <label className={`exercise-picker-row ${position >= 0 ? "is-selected" : ""}`} key={exercise.id}>
+              <input type="checkbox" checked={position >= 0} onChange={() => toggle(exercise.id)} />
+              <span><strong>{demo && position >= 0 ? `${position + 1}. ` : ""}{exercise.name}</strong><small>{exercise.description || "Ejercicio oficial"}</small></span>
+            </label>;
+          })}
+        </div>}
+      </div>
+      <p className="security-note">{demo ? "Este plan de prueba queda guardado en este navegador." : "La estructura se edita online y se guarda en tu cuenta."}</p>
+      <button className="primary-button full-button" type="button"
+        disabled={saving || (!demo && !online) || name.trim().length === 0 || (demo && selected.length === 0)}
+        onClick={() => onSave(name, description, selected)}>
+        {saving ? "Guardando…" : creating ? "Crear rutina" : "Guardar cambios"} <Icon name="arrow" size={17} />
+      </button>
+      {message && <p className="form-error" role="alert">{message}</p>}
+      {!demo && !online && <p className="form-error" role="alert">Conectate para guardar cambios estructurales.</p>}
+    </section>
   </div>;
 }
-
-function SquatTechnicalIllustration({ phase, view }: { phase: "start" | "descent" | "return"; view: "animation" | "muscles" | "angles" }): ReactElement {
-  const isBottom = phase === "descent";
-  const isReturn = phase === "return";
-  const pose = isBottom ? {
-    bar: 67,
-    head: [103, 49],
-    torso: "M98 61 C91 68 88 78 90 87 L109 94 C118 84 121 73 116 62 Z",
-    arms: ["M98 65 L80 70 L63 67", "M116 64 L132 70 L153 67"],
-    hip: "M90 87 L109 94 L119 101 L96 104 Z",
-    legs: ["M99 99 L77 108 L79 139", "M114 98 L130 111 L147 139"],
-    feet: ["M72 142 H86", "M141 142 H157"],
-  } : {
-    bar: isReturn ? 46 : 48,
-    head: [105, isReturn ? 30 : 29],
-    torso: "M101 42 C94 51 91 64 94 77 L111 83 C119 67 119 53 112 42 Z",
-    arms: ["M99 47 L82 57 L64 49", "M112 47 L129 57 L151 49"],
-    hip: "M94 77 L111 83 L116 95 L94 96 Z",
-    legs: ["M98 93 L82 112 L72 141", "M110 93 L127 111 L145 140"],
-    feet: ["M66 143 H81", "M139 143 H155"],
-  };
-  const squatClass = isBottom ? "squat-bottom" : isReturn ? "squat-return" : "squat-start";
-  return <svg className={`squat-figure ${squatClass} squat-view-${view}`} viewBox="0 0 220 190" role="img" aria-label="Sentadilla con barra en vista lateral"><defs><linearGradient id="squat-skin" x1="0" x2="1"><stop offset="0" stopColor="#d8d2ff" /><stop offset="1" stopColor="#9181f1" /></linearGradient><linearGradient id="squat-highlight" x1="0" x2="1"><stop offset="0" stopColor="#ffb978" /><stop offset="1" stopColor="#f47d66" /></linearGradient></defs><path className="squat-rack" d="M28 30 V164 M31 47 H47 M31 66 H47" /><path className="squat-floor" d="M18 164 H198" /><g className="squat-bar" transform={`translate(0 ${pose.bar - 48})`}><path d="M50 48 H171" /><path d="M57 42 V54 M164 42 V54" /><circle cx="51" cy="48" r="5" /><circle cx="170" cy="48" r="5" /></g><g className="squat-body"><circle className="squat-head" cx={pose.head[0]} cy={pose.head[1]} r="10" /><path className="squat-torso" d={pose.torso} /><path className="squat-arm" d={pose.arms[0]} /><path className="squat-arm" d={pose.arms[1]} /><path className="squat-hip" d={pose.hip} /><path className="squat-leg squat-leg-back" d={pose.legs[0]} /><path className="squat-leg squat-leg-front" d={pose.legs[1]} /><path className="squat-foot" d={pose.feet[0]} /><path className="squat-foot" d={pose.feet[1]} /></g>{view === "muscles" ? <g className="squat-muscle-map"><ellipse cx={isBottom ? 100 : 98} cy={isBottom ? 101 : 104} rx="13" ry="8" /><ellipse cx={isBottom ? 116 : 120} cy={isBottom ? 104 : 108} rx="13" ry="8" /><ellipse cx={isBottom ? 78 : 78} cy={isBottom ? 121 : 125} rx="7" ry="16" /><ellipse cx={isBottom ? 136 : 136} cy={isBottom ? 126 : 126} rx="7" ry="16" /><path d="M129 105 H188 M78 121 H33" /><text x="145" y="101">GLÚTEOS</text><text x="21" y="118">CUÁDRICEPS</text></g> : null}{view === "angles" ? <g className="squat-angle-map"><path d="M145 145 A40 40 0 0 0 128 112" /><path d="M132 112 l7 2 M132 112 l2 7" /><text x="143" y="151">Rodilla</text><text x="137" y="69">Barra / mediopié</text></g> : null}</svg>;
-}
-
-function ExerciseMotionIllustration({ color }: { color: string }): ReactElement {
-  return <svg className={`motion-figure figure-${color}`} viewBox="0 0 180 150" role="img" aria-label="Ilustración técnica del movimiento"><defs><linearGradient id={`figure-gradient-${color}`} x1="0" x2="1"><stop offset="0" stopColor="currentColor" stopOpacity=".55" /><stop offset="1" stopColor="currentColor" /></linearGradient></defs><circle cx="91" cy="24" r="10" fill={`url(#figure-gradient-${color})`} /><path d="M88 37 C80 52 78 66 84 78 L72 105 M84 78 L105 101 M83 49 L61 68 M83 49 L111 61" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="8" /><path d="M48 105 H124" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="7" /><path d="M48 96 V114 M124 96 V114" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="3" opacity=".65" /><circle cx="84" cy="78" r="9" fill="currentColor" opacity=".92" /><circle cx="72" cy="105" r="7" fill="currentColor" opacity=".88" /><path d="M132 53 C145 64 145 84 133 96" fill="none" stroke="currentColor" strokeDasharray="3 5" strokeLinecap="round" strokeWidth="2" opacity=".55" /><path d="M133 53 l-6 5 M133 53 l-1 8" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" opacity=".7" /></svg>;
-}
-function DetailSection({ title, children }: { title: string; children: ReactNode }): ReactElement { return <section className="detail-section"><p className="eyebrow">{title}</p>{children}</section>; }
-
-function RoutineEditor({ routine, exercises, saving, online, onClose, onSave }: { routine: ApiRoutine | null; exercises: ApiExercise[]; saving: boolean; online: boolean; onClose: () => void; onSave: (name: string, description: string, exerciseIds: string[]) => void }): ReactElement { const [name, setName] = useState(routine?.name ?? ""); const [description, setDescription] = useState(routine?.description ?? ""); const [selected, setSelected] = useState<string[]>(routine?.exercises.filter((item) => item.status === "active").sort((a, b) => a.position - b.position).map((item) => item.exerciseId) ?? []); const toggle = (id: string) => setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]); return <div className="drawer-layer" role="presentation" onClick={onClose}><section className="routine-editor" role="dialog" aria-modal="true" aria-labelledby="routine-editor-title" onClick={(event) => event.stopPropagation()}><div className="drawer-header"><div><p className="eyebrow">{routine === null ? "NUEVA RUTINA" : "EDICIÓN ONLINE"}</p><h2 id="routine-editor-title">{routine === null ? "Crear rutina" : "Editar rutina"}</h2></div><button className="close-button" type="button" onClick={onClose} aria-label="Cerrar editor">×</button></div><label>Nombre<input value={name} onChange={(event) => setName(event.target.value)} maxLength={120} placeholder="Ej. Piernas · Fuerza" /></label><label>Descripción<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={1000} placeholder="Objetivo y notas de la rutina" /></label><div className="editor-section"><div className="section-heading compact"><div><p className="eyebrow">ESTRUCTURA</p><h3>Ejercicios oficiales</h3></div><span className="editor-count">{selected.length}</span></div>{exercises.length === 0 ? <p className="muted">Necesitás catálogo online para agregar ejercicios.</p> : <div className="exercise-picker">{exercises.map((exercise) => <label className={`exercise-picker-row ${selected.includes(exercise.id) ? "is-selected" : ""}`} key={exercise.id}><input type="checkbox" checked={selected.includes(exercise.id)} onChange={() => toggle(exercise.id)} /><span><strong>{exercise.name}</strong><small>{exercise.description || "Ejercicio oficial"}</small></span></label>)}</div>}</div><p className="security-note">La estructura se edita online. No se crea una rutina offline ni se envía una operación pendiente.</p><button className="primary-button full-button" type="button" disabled={saving || !online || name.trim().length === 0} onClick={() => onSave(name, description, selected)}>{saving ? "Guardando…" : routine === null ? "Crear rutina" : "Guardar cambios"} <Icon name="arrow" size={17} /></button>{!online ? <p className="form-error" role="alert">Conectate para guardar cambios estructurales.</p> : null}</section></div>; }
 
 function ProfileDrawer({ session, serverUser, authLoading, authBusy, authMessage, serverIdentityLoading, serverIdentityMessage, email, password, supabaseConfigured, onClose, onSubmit, onEmailChange, onPasswordChange, onSignOut }: { session: Session | null; serverUser: ApiUser | null; authLoading: boolean; authBusy: boolean; authMessage: string | null; serverIdentityLoading: boolean; serverIdentityMessage: string | null; email: string; password: string; supabaseConfigured: boolean; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onEmailChange: (value: string) => void; onPasswordChange: (value: string) => void; onSignOut: () => void }): ReactElement { return <div className="drawer-layer" role="presentation" onClick={onClose}><aside className="profile-drawer" role="dialog" aria-modal="true" aria-labelledby="profile-title" onClick={(event) => event.stopPropagation()}><div className="drawer-header"><div><p className="eyebrow">CUENTA</p><h2 id="profile-title">Tu perfil</h2></div><button className="close-button" type="button" onClick={onClose} aria-label="Cerrar perfil">×</button></div>{authLoading ? <p className="muted">Comprobando sesión…</p> : null}{!authLoading && session !== null ? <div className="profile-authenticated"><div className="profile-large-avatar">{session.user.email?.slice(0, 1).toUpperCase() ?? "N"}</div><h3>{session.user.email ?? "Atleta FORMA"}</h3><p className="muted">Sesión online activa</p>{serverIdentityLoading ? <p className="muted">Validando identidad interna…</p> : null}{serverUser !== null ? <p className="server-identity">Identidad FORMA validada · {serverUser.role}</p> : null}{serverIdentityMessage !== null ? <p className="form-error" role="alert">{serverIdentityMessage}</p> : null}<p className="security-note">La sesión offline todavía no conserva credenciales. Tus entrenamientos locales sí se guardan en el dispositivo.</p><button className="secondary-button" type="button" onClick={onSignOut} disabled={authBusy}><Icon name="logout" size={16} /> {authBusy ? "Cerrando…" : "Cerrar sesión"}</button></div> : null}{!authLoading && session === null ? <form className="drawer-auth-form" onSubmit={onSubmit}><div className="auth-intro"><div className="profile-large-avatar"><Icon name="profile" size={24} /></div><h3>Entrá a FORMA</h3><p className="muted">Sincronizá tu identidad cuando vuelvas a tener conexión.</p></div><label>Correo<input type="email" autoComplete="email" value={email} onChange={(event) => onEmailChange(event.target.value)} required /></label><label>Contraseña<input type="password" autoComplete="current-password" value={password} onChange={(event) => onPasswordChange(event.target.value)} required /></label><button className="primary-button full-button" type="submit" disabled={authBusy || !supabaseConfigured}>{authBusy ? "Ingresando…" : "Iniciar sesión"}</button>{!supabaseConfigured ? <p className="security-note">Configurá las variables VITE_SUPABASE_* para habilitar este entorno.</p> : null}{authMessage !== null ? <p className="form-error" role="alert">{authMessage}</p> : null}</form> : null}<div className="drawer-footer"><span>FORMA · diseño inicial</span><span>v0.1</span></div></aside></div>; }
 
@@ -506,14 +846,18 @@ function MetricCard({ label, value, detail, accent }: { label: string; value: st
 function Icon({ name, size = 20 }: { name: IconName; size?: number }): ReactElement { const content: Record<IconName, ReactNode> = { home: <><path d="m3 10 9-7 9 7" /><path d="M5 9v10h14V9" /><path d="M9 19v-6h6v6" /></>, routines: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></>, train: <><path d="M6 5v14M18 5v14M3 8h6M15 8h6M3 16h6M15 16h6" /><path d="M9 12h6" /></>, progress: <><path d="M4 19V5M4 19h16" /><path d="m7 15 3-4 3 2 5-7" /></>, exercises: <><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></>, profile: <><circle cx="12" cy="8" r="3.5" /><path d="M5 20c.8-3.2 3.1-5 7-5s6.2 1.8 7 5" /></>, arrow: <><path d="M4 12h15" /><path d="m13 6 6 6-6 6" /></>, bolt: <path d="m13 2-9 11h7l-1 9 9-12h-7l1-8Z" />, clock: <><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></>, search: <><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 4 4" /></>, plus: <><path d="M12 5v14M5 12h14" /></>, check: <path d="m5 12 4 4L19 6" />, chevron: <path d="m9 5 7 7-7 7" />, logout: <><path d="M10 5H5v14h5" /><path d="m14 8 4 4-4 4M8 12h10" /></> }; return <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{content[name]}</svg>; }
 function getClientInstanceId(ownerId: string): string { const key = `forma.client-instance.${ownerId}`; try { const existing = localStorage.getItem(key); if (existing !== null && existing.length > 0) return existing; const created = crypto.randomUUID(); localStorage.setItem(key, created); return created; } catch { return `memory-${ownerId}`; } }
 function buildWorkoutExercises(routine: RoutineSummary | null, catalogExercises: ApiExercise[] | null): WorkoutExercise[] {
+  if (routine?.demoPlan) {
+    return routine.demoPlan.exerciseIds.flatMap((id) => demoWorkoutExercises.filter((exercise) => exercise.id === id));
+  }
   if (routine?.api !== null && routine?.api !== undefined) {
-    if (catalogExercises === null) return [];
+    if (catalogExercises === null || routine.api.exercises.some((item) =>
+      item.status === "active" && !catalogExercises.some((exercise) => exercise.id === item.exerciseId && exercise.status === "published"))) return [];
     return routine.api.exercises
       .filter((item) => item.status === "active")
       .sort((left, right) => left.position - right.position)
       .flatMap((item, index) => {
         const exercise = catalogExercises.find((candidate) => candidate.id === item.exerciseId && candidate.status === "published");
-        return exercise === undefined ? [] : [{ id: exercise.id, name: exercise.name, muscle: exercise.targetMuscles.join(" · ") || exercise.description || "Ejercicio oficial", color: ["violet", "blue", "green", "orange"][index % 4] ?? "violet" }];
+        return exercise === undefined ? [] : [{ id: exercise.id, name: exercise.name, targetSets: item.targetSets, muscle: exercise.targetMuscles.join(" · ") || exercise.description || "Ejercicio oficial", color: ["violet", "blue", "green", "orange"][index % 4] ?? "violet" }];
       });
   }
   if (catalogExercises !== null) {

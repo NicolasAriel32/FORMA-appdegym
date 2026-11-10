@@ -1,16 +1,23 @@
 import type { IDBFactory, IDBDatabase, IDBRequest, IDBTransaction } from "fake-indexeddb";
 import type { ExerciseId, SessionId, SetId, WorkoutSession } from "../../../../packages/domain/src/workout.js";
 import type { SyncOperation } from "../../../../packages/sync/src/outbox.js";
-import type { ApiExercise } from "./api-client.js";
+import type { ApiExercise, ApiRoutine } from "./api-client.js";
 import type { ApiSyncChangesPage } from "./sync-client.js";
 
-export const LOCAL_DATABASE_VERSION = 2;
+export const LOCAL_DATABASE_VERSION = 3;
 export const LOCAL_STORE_NAMES = {
   workoutSessions: "workoutSessions",
   outbox: "outbox",
   syncMetadata: "syncMetadata",
   exercises: "exercises",
+  workoutPlans: "workoutPlans",
 } as const;
+
+export type WorkoutPlanSnapshot = {
+  sessionId: SessionId;
+  name: string;
+  exercises: { id: string; name: string; muscle: string; color: string; targetSets?: number }[];
+};
 
 export type SyncMetadata = {
   scopeId: string;
@@ -54,6 +61,9 @@ export function openLocalDatabase(
           keyPath: "scopeId",
         });
       }
+      if (!database.objectStoreNames.contains(LOCAL_STORE_NAMES.workoutPlans)) {
+        database.createObjectStore(LOCAL_STORE_NAMES.workoutPlans, { keyPath: "sessionId" });
+      }
       if (!database.objectStoreNames.contains(LOCAL_STORE_NAMES.exercises)) {
         const exercises = database.createObjectStore(LOCAL_STORE_NAMES.exercises, {
           keyPath: "id",
@@ -74,9 +84,11 @@ export async function persistSessionAndOperation(
   database: LocalDatabase,
   session: WorkoutSession,
   operation: SyncOperation,
+  options: { plan?: WorkoutPlanSnapshot; expectedSession?: WorkoutSession | null } = {},
 ): Promise<void> {
+  if (options.plan && options.plan.sessionId !== session.id) throw new LocalPersistenceError("workout plan does not match its session");
   const transaction = database.raw.transaction(
-    [LOCAL_STORE_NAMES.workoutSessions, LOCAL_STORE_NAMES.outbox],
+    [LOCAL_STORE_NAMES.workoutSessions, LOCAL_STORE_NAMES.outbox, LOCAL_STORE_NAMES.workoutPlans],
     "readwrite",
   );
   await new Promise<void>((resolve, reject) => {
@@ -120,12 +132,24 @@ export async function persistSessionAndOperation(
             );
           }
 
-          transaction
-            .objectStore(LOCAL_STORE_NAMES.workoutSessions)
-            .put(session);
-          if (existing === undefined) {
-            outboxStore.put(operation);
-          }
+          if (existing !== undefined) return;
+
+          const sessions = transaction.objectStore(LOCAL_STORE_NAMES.workoutSessions);
+          const currentRequest = sessions.get(session.id);
+          currentRequest.onsuccess = () => {
+            try {
+              if (options.expectedSession !== undefined &&
+                canonicalJson(currentRequest.result ?? null) !== canonicalJson(options.expectedSession)) {
+                throw new LocalPersistenceError("La sesión cambió en otra pestaña. Recargá antes de volver a intentar.");
+              }
+              sessions.put(session);
+              outboxStore.add(operation);
+              if (options.plan) transaction.objectStore(LOCAL_STORE_NAMES.workoutPlans).add(options.plan);
+            } catch (error) {
+              rejectOnce(error);
+              transaction.abort();
+            }
+          };
         } catch (error) {
           rejectOnce(error);
           transaction.abort();
@@ -136,6 +160,15 @@ export async function persistSessionAndOperation(
       transaction.abort();
     }
   });
+}
+
+export async function getWorkoutPlan(database: LocalDatabase, sessionId: SessionId): Promise<WorkoutPlanSnapshot | undefined> {
+  const transaction = database.raw.transaction(LOCAL_STORE_NAMES.workoutPlans, "readonly");
+  const [plan] = await Promise.all([
+    requestValue<WorkoutPlanSnapshot | undefined>(transaction.objectStore(LOCAL_STORE_NAMES.workoutPlans).get(sessionId)),
+    transactionComplete(transaction),
+  ]);
+  return plan;
 }
 
 export async function getSession(
@@ -238,6 +271,47 @@ export async function savePublishedExercises(
     transaction.abort();
     throw error;
   }
+  await transactionComplete(transaction);
+}
+
+const publishedCatalogScope = "published-catalog";
+
+export async function savePublishedCatalog(database: LocalDatabase, exercises: readonly ApiExercise[]): Promise<void> {
+  const transaction = database.raw.transaction([LOCAL_STORE_NAMES.exercises, LOCAL_STORE_NAMES.syncMetadata], "readwrite");
+  const store = transaction.objectStore(LOCAL_STORE_NAMES.exercises);
+  for (const exercise of exercises) store.put(exercise);
+  transaction.objectStore(LOCAL_STORE_NAMES.syncMetadata).put({
+    scopeId: publishedCatalogScope, exerciseIds: exercises.map((exercise) => exercise.id),
+  });
+  await transactionComplete(transaction);
+}
+
+export async function readPublishedCatalog(database: LocalDatabase): Promise<ApiExercise[] | null> {
+  const transaction = database.raw.transaction([LOCAL_STORE_NAMES.exercises, LOCAL_STORE_NAMES.syncMetadata], "readonly");
+  const [exercises, membership] = await Promise.all([
+    requestValue<ApiExercise[]>(transaction.objectStore(LOCAL_STORE_NAMES.exercises).getAll()),
+    requestValue<{ exerciseIds: string[] } | undefined>(transaction.objectStore(LOCAL_STORE_NAMES.syncMetadata).get(publishedCatalogScope)),
+    transactionComplete(transaction),
+  ]);
+  if (!membership) return null;
+  const published = new Set(membership.exerciseIds);
+  return exercises.filter((exercise) => exercise.status === "published" && published.has(exercise.id));
+}
+
+const personalRoutinesScope = "personal-routines";
+
+export async function readCachedRoutines(database: LocalDatabase): Promise<ApiRoutine[] | null> {
+  const transaction = database.raw.transaction(LOCAL_STORE_NAMES.syncMetadata, "readonly");
+  const [snapshot] = await Promise.all([
+    requestValue<{ routines: ApiRoutine[] } | undefined>(transaction.objectStore(LOCAL_STORE_NAMES.syncMetadata).get(personalRoutinesScope)),
+    transactionComplete(transaction),
+  ]);
+  return snapshot?.routines ?? null;
+}
+
+export async function saveCachedRoutines(database: LocalDatabase, routines: ApiRoutine[]): Promise<void> {
+  const transaction = database.raw.transaction(LOCAL_STORE_NAMES.syncMetadata, "readwrite");
+  transaction.objectStore(LOCAL_STORE_NAMES.syncMetadata).put({ scopeId: personalRoutinesScope, routines });
   await transactionComplete(transaction);
 }
 

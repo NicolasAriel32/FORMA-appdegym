@@ -9,6 +9,8 @@ import {
   getSyncMetadata,
   listOutboxOperations,
   listCachedExercises,
+  readPublishedCatalog,
+  savePublishedCatalog,
   openLocalDatabase,
   persistSessionAndOperation,
   savePublishedExercises,
@@ -134,6 +136,12 @@ test("published catalog entries persist locally without a delete pass", async ()
     };
     await savePublishedExercises(database, [exercise]);
     await savePublishedExercises(database, []);
+    assert.deepEqual(await listCachedExercises(database), [exercise]);
+    assert.equal(await readPublishedCatalog(database), null);
+    await savePublishedCatalog(database, [exercise]);
+    assert.deepEqual(await readPublishedCatalog(database), [exercise]);
+    await savePublishedCatalog(database, []);
+    assert.deepEqual(await readPublishedCatalog(database), []);
     assert.deepEqual(await listCachedExercises(database), [exercise]);
   } finally {
     database.close();

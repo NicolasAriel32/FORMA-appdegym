@@ -47,7 +47,7 @@ export function SquatPreview(): ReactElement {
   }
 
   return <section className="squat-preview" aria-label="Demostración de sentadilla trasera">
-    <p className="exercise-detail-kicker">DEMOSTRACIÓN · MODELO PILOTO</p>
+    <p className="exercise-detail-kicker">ANIMACIÓN 3D · SE REPRODUCE AUTOMÁTICAMENTE</p>
     <div className="squat-controls" role="group" aria-label="Vista del ejercicio">
       <button type="button" aria-pressed={view === "movement"} onClick={() => selectView("movement")}>Movimiento</button>
       <button type="button" aria-pressed={view === "technique"} onClick={() => selectView("technique")}>Técnica lateral</button>

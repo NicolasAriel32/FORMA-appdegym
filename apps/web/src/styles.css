@@ -355,3 +355,89 @@ html:has(.exercise-details[open]) { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .exercise-repetition .squat-model { transition: none; }
 }
+
+
+/* FORMA strength-training direction: clear log, high contrast, fast set entry. */
+:root {
+  --forma-accent: #c4f06d;
+  --forma-accent-soft: rgba(196, 240, 109, .14);
+  --forma-surface: #151915;
+  color: #f6f8f4;
+  background: #080a08;
+}
+body { background: #080a08; }
+button:focus-visible, input:focus-visible { outline-color: var(--forma-accent); }
+.app-shell { background: radial-gradient(circle at 80% -8%, rgba(186, 236, 105, .09), transparent 34%), #0b0e0b; }
+.topbar { background: rgba(10, 13, 10, .92); }
+.app-content { color: #f6f8f4; }
+.screen-subtitle { color: #b5beb4; font-size: .92rem; }
+.eyebrow { color: #b2bdb1; font-size: .72rem; }
+.active-workout-header h1 { color: #fff; font-size: clamp(2.1rem, 9vw, 2.8rem); }
+.active-workout-header h1 span { color: #b9c3b8; }
+.active-workout-header .screen-subtitle { color: #c0c8bf; }
+.live-label { color: var(--forma-accent); font-size: .72rem; }
+.live-dot { background: var(--forma-accent); box-shadow: 0 0 10px rgba(196, 240, 109, .72); }
+.workout-progress { height: 5px; border-radius: 999px; background: #2b312a; }
+.workout-progress span { background: var(--forma-accent); }
+.exercise-log-card, .chart-card {
+  border-color: rgba(231, 243, 225, .13);
+  background: var(--forma-surface);
+}
+.exercise-log-heading h2 { color: #fff; font-size: 1.12rem; }
+.exercise-log-heading p { color: #bac4b9; font-size: .8rem; }
+.exercise-status { color: var(--forma-accent); font-size: .78rem; }
+.set-header { color: #c1cbc0; font-size: .72rem; }
+.set-row {
+  min-height: 52px;
+  border: 1px solid rgba(232, 243, 227, .08);
+  color: #f3f5f0;
+  background: #20251f;
+  font-size: .95rem;
+}
+.set-number { color: #c4cdbf; }
+.set-row.is-complete {
+  border-color: rgba(196, 240, 109, .36);
+  color: #fff;
+  background: var(--forma-accent-soft);
+}
+.set-check { width: 36px; height: 36px; color: #c7d0c3; background: #30372e; }
+.is-complete .set-check { color: #10140d; background: var(--forma-accent); }
+.set-entry label { color: #d1d9ce; font-size: .72rem; }
+.set-entry input {
+  min-height: 48px;
+  border-color: rgba(226, 239, 219, .2);
+  color: #fff;
+  background: #111511;
+  font-size: 1.05rem;
+}
+.set-entry input:focus { border-color: var(--forma-accent); box-shadow: 0 0 0 3px rgba(196, 240, 109, .16); }
+.set-entry-inline input { min-height: 48px; font-size: 1.05rem; }
+.set-complete-button { min-width: 48px; min-height: 48px; }
+.add-set-button { min-height: 44px; color: var(--forma-accent); font-size: .82rem; }
+.primary-button { color: #10140d; background: var(--forma-accent); font-size: .86rem; }
+.primary-button:hover { background: #d6ff8d; }
+.secondary-button, .rest-toggle { color: #e4eddf; }
+.rest-card, .next-exercise-card {
+  border-color: rgba(231, 243, 225, .13);
+  background: #171b17;
+}
+.next-exercise-card h2 { color: #fff; font-size: 1rem; }
+.next-exercise-card p { color: #b7c1b5; font-size: .8rem; }
+.exercise-details .detail-section { padding: 17px 0; border-color: rgba(231, 243, 225, .11); }
+.exercise-details .detail-section p:not(.eyebrow), .exercise-details .detail-section li {
+  color: #e0e5dd;
+  font-size: .95rem;
+  line-height: 1.65;
+}
+.exercise-details .detail-section .eyebrow { color: #c3d1bc; font-size: .76rem; }
+.exercise-details .squat-cue { color: #e7ebe3; font-size: .95rem; line-height: 1.6; }
+.exercise-details .tag-list span { border-color: rgba(196, 240, 109, .25); color: #e5f5cb; background: rgba(196, 240, 109, .09); font-size: .8rem; }
+.exercise-details .tag-list.muted-tags span { border-color: rgba(231, 243, 225, .16); color: #c8d0c5; background: rgba(231, 243, 225, .055); }
+.exercise-details .exercise-detail-kicker { color: #e1ecd8; font-size: .76rem; }
+.exercise-mode-controls button { min-height: 46px; color: #f1f4ee; font-size: .86rem; }
+.exercise-mode-controls button[aria-pressed="true"] { border-color: var(--forma-accent); color: #10140d; background: var(--forma-accent); }
+@media (max-width: 390px) {
+  .app-content { padding-inline: 16px; }
+  .set-header { font-size: .68rem; }
+  .set-row { min-height: 50px; }
+}

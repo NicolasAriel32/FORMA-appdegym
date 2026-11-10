@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import type { ReactElement, RefObject } from "react";
 
 export type Demonstration = "squat" | "bench" | "deadlift" | "row";
-export type ExerciseVisualMode = "movement" | "technique" | "muscles";
+export type ExerciseVisualMode = "movement" | "muscles";
 
 const media = {
   squat: {
@@ -10,7 +10,6 @@ const media = {
     label: "Sentadilla trasera con barra en vista de tres cuartos",
     duration: 4.2,
     equipment: null,
-    technique: "Trayectoria de barra y alineación de rodilla",
     focus: "Piernas y cadera",
   },
   bench: {
@@ -18,7 +17,6 @@ const media = {
     label: "Press de banca plano con barra en vista de tres cuartos",
     duration: 4.2,
     equipment: "Carga de referencia · 2 discos de 20 kg por lado",
-    technique: "Recorrido horizontal de la barra",
     focus: "Pecho y empuje",
   },
   deadlift: {
@@ -26,7 +24,6 @@ const media = {
     label: "Peso muerto rumano con barra en vista de tres cuartos",
     duration: 4.2,
     equipment: "Carga de referencia · 2 discos de 20 kg por lado",
-    technique: "Bisagra de cadera y barra cercana al cuerpo",
     focus: "Cadena posterior",
   },
   row: {
@@ -34,14 +31,12 @@ const media = {
     label: "Remo con barra en vista de tres cuartos",
     duration: 4.2,
     equipment: "Carga de referencia · 2 discos de 20 kg por lado",
-    technique: "Tracción hacia el abdomen con tronco estable",
     focus: "Espalda y tracción",
   },
 } as const;
 
 const modes: Array<{ id: ExerciseVisualMode; label: string }> = [
   { id: "movement", label: "Movimiento" },
-  { id: "technique", label: "Técnica lateral" },
   { id: "muscles", label: "Músculos" },
 ];
 
@@ -64,7 +59,7 @@ export function ExerciseRepetition({
   showViewControls?: boolean;
   muscles?: string[];
 }): ReactElement {
-  const { folder, label, duration, equipment, technique, focus } = media[demonstration];
+  const { folder, label, duration, equipment, focus } = media[demonstration];
   const fallbackRef = useRef<HTMLVideoElement>(null);
   const player = videoRef ?? fallbackRef;
   const [playing, setPlaying] = useState(false);
@@ -96,10 +91,6 @@ export function ExerciseRepetition({
         onClick={() => setLocalView(mode.id)}>{mode.label}</button>)}
     </div>}
     <div className="exercise-repetition-frame">{video}
-      {activeView === "technique" && <div className={`exercise-technique-guide guide-${demonstration}`} aria-hidden="true">
-        <span className="exercise-technique-rail" /><span className="exercise-technique-marker" />
-        <small>RECORRIDO</small>
-      </div>}
       {activeView === "muscles" && <>
         <span className={`exercise-muscle-glow glow-${demonstration}`} aria-hidden="true" />
         <span className="exercise-muscle-badge">FOCO · {focus}</span>
@@ -111,7 +102,6 @@ export function ExerciseRepetition({
         else element.pause();
       }}>{playing ? "Pausar" : "Reproducir"}</button>
     </div>
-    {activeView === "technique" && <p className="squat-cue"><strong>Detalle lateral.</strong> {technique}. La guía es orientativa y acompaña el loop 3D.</p>}
     {activeView === "muscles" && <div className="exercise-muscle-details">
       <p className="squat-cue"><strong>Grupos principales.</strong> El resaltado acompaña el loop 3D y es orientativo.</p>
       <div className="tag-list">{(visibleMuscles.length > 0 ? visibleMuscles : [focus]).map((item) => <span key={item}>{item}</span>)}</div>

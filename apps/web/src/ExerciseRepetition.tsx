@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ReactElement, RefObject } from "react";
 
-export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline" | "pushdown" | "lunge" | "legext" | "legcurl";
+export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline" | "pushdown" | "lunge" | "legext" | "legcurl" | "hipthrust";
 export type ExerciseVisualMode = "movement" | "muscles";
 
 const media = {
@@ -25,6 +25,13 @@ const media = {
     duration: 4.2,
     equipment: "Carga de referencia · 2 discos de 20 kg por lado",
     focus: "Cadena posterior",
+  },
+  hipthrust: {
+    folder: "/media/exercises/hip-thrust",
+    label: "Hip thrust con barra apoyado en banco, vista lateral de tres cuartos",
+    duration: 4.1,
+    equipment: "Carga de referencia · 1 disco de 20 kg por lado",
+    focus: "Glúteos",
   },
   legcurl: {
     folder: "/media/exercises/lying-leg-curl",

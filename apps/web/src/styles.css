@@ -543,3 +543,8 @@ h1, h2, h3 { text-wrap: balance; }
 .muscle-orb.has-photo { flex: none; }
 @media (max-width: 400px) { .muscle-orb.has-photo { width: 112px; height: 112px; margin-right: -4px; } .featured-workout { padding-right: 14px; } }
 .exercise-avatar.exercise-photo { width: 48px; height: 48px; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; object-fit: cover; background: #151724; }
+.empty-workout-card.has-photo { overflow: hidden; padding-top: 0; }
+.empty-workout-photo { position: relative; width: calc(100% + 48px); margin: 0 -24px; aspect-ratio: 4 / 3; max-height: 300px; }
+.empty-workout-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 82% 30%; }
+.empty-workout-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, #1a1a28 0%, rgba(26,26,40,0) 45%); }
+.empty-workout-card.has-photo .eyebrow { margin-top: 4px; }

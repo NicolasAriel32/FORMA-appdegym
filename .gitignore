@@ -4,3 +4,6 @@ dist/
 .env.*
 !.env.example
 coverage/
+
+# Configuración pública de Supabase para el build publicado (la clave publicable no es secreta).
+!apps/web/.env.production

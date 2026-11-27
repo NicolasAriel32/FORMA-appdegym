@@ -31,7 +31,7 @@
 .sl-stepper-row { display: grid; grid-template-columns: 38px minmax(0, 1fr) 38px; align-items: center; gap: 4px; padding: 4px; border-radius: 16px; background: rgba(9, 10, 18, .55); }
 .sl-stepper-row button { display: grid; height: 44px; place-items: center; border-radius: 12px; color: #e6e1ff; background: rgba(151, 133, 253, .2); cursor: pointer; touch-action: manipulation; }
 .sl-stepper-row button:active { background: rgba(151, 133, 253, .38); transform: scale(.94); }
-.app-shell .sl .sl-stepper-row input { width: 100%; min-width: 0; height: 52px; padding: 0; border: 0; outline: 0; color: #fff; background: transparent; font-size: 1.85rem; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -.03em; text-align: center; }
+.app-shell .sl-steppers .sl-stepper-row input { width: 100%; min-width: 0; height: 52px; padding: 0; border: 0; outline: 0; color: #fff; background: transparent; font-size: 1.85rem; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -.03em; text-align: center; }
 .sl-stepper-row input::placeholder { color: rgba(255,255,255,.22); }
 .sl-stepper-row:focus-within { box-shadow: 0 0 0 2px #9785fd; }
 .sl-error { margin: -4px 0 0; color: #ef9b8a; font-size: .76rem; font-weight: 700; }

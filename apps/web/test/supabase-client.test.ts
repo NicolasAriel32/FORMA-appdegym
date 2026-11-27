@@ -28,8 +28,8 @@ test("web Supabase config requires both runtime values and a valid URL", () => {
 
 test("web auth does not persist a session until offline unlock policy is approved", () => {
   assert.deepEqual(WEB_AUTH_OPTIONS, {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
   });
 });

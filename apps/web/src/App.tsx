@@ -4,6 +4,8 @@ import { OfflineMediaCard } from "./OfflineMediaCard.js";
 import { Icon, type IconName } from "./Icon.js";
 import { RoutineEditor } from "./RoutineEditor.js";
 import { SetLogger } from "./SetLogger.js";
+import { bestMarks, fetchMyAthlete, flushPendingMarks, formatKg, joinLeaderboard, LIFTS, liftForDemonstration, publishMark, queueMarks, type Athlete, type AthleteSex, type PendingMark } from "./platform/leaderboard.js";
+const RankingView = lazy(() => import("./RankingView.js").then((module) => ({ default: module.RankingView })));
 import { routineImageFor, routineImages } from "./routineImages.js";
 import { ExerciseRepetition, exercisePhotoFor } from "./ExerciseRepetition.js";
 import { demoExercises, demonstrationFor, muscleGroupFor, muscleGroups, type ExerciseCard, type ExerciseEducation, type MuscleGroup } from "./exerciseCatalog.js";
@@ -41,6 +43,7 @@ import {
   loadCurrentSession,
   signInWithPassword,
   signOut,
+  signUpWithPassword,
   subscribeToAuthChanges,
   type WebAuthError,
 } from "./platform/auth.js";
@@ -134,6 +137,12 @@ export default function App(): ReactElement {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [accountMode, setAccountMode] = useState<"signin" | "signup">("signin");
+  const [signUpName, setSignUpName] = useState("");
+  const [signUpSex, setSignUpSex] = useState<AthleteSex | null>(null);
+  const [athlete, setAthlete] = useState<Athlete | null>(null);
+  const [rankingRefresh, setRankingRefresh] = useState(0);
+  const [progressSection, setProgressSection] = useState<"mine" | "ranking">("mine");
   const [serverIdentityLoading, setServerIdentityLoading] = useState(false);
   const [serverIdentityMessage, setServerIdentityMessage] = useState<string | null>(null);
   const [ownerDatabase, setOwnerDatabase] = useState<{ ownerId: string; database: LocalDatabase } | null>(null);
@@ -170,6 +179,66 @@ export default function App(): ReactElement {
     const unsubscribe = subscribeToAuthChanges(supabase, (next) => { if (active) setSession(next); });
     return () => { active = false; unsubscribe(); };
   }, [supabase]);
+
+  // Perfil del ranking: se lee al iniciar sesión; si la cuenta se creó con nombre y sexo, se suma sola.
+  useEffect(() => {
+    if (supabase === null || session === null) { setAthlete(null); return; }
+    let active = true;
+    void (async () => {
+      const client = await supabase.client();
+      let current = await fetchMyAthlete(client);
+      const metadata = session.user.user_metadata as { display_name?: unknown; sex?: unknown };
+      if (current === null && typeof metadata.display_name === "string" && (metadata.sex === "M" || metadata.sex === "F")) {
+        await joinLeaderboard(client, metadata.display_name, metadata.sex);
+        current = await fetchMyAthlete(client);
+      }
+      if (!active) return;
+      setAthlete(current);
+      if (current?.enabled && online) {
+        const { sent, records } = await flushPendingMarks(client);
+        if (active && sent.length > 0) {
+          setRankingRefresh((value) => value + 1);
+          if (records.length > 0) setWorkoutMessage(`Nuevo récord en el ranking: ${records.map((mark) => LIFTS.find((lift) => lift.code === mark.lift)?.name).join(", ")}.`);
+        }
+      }
+    })().catch(() => { if (active) setAthlete(null); });
+    return () => { active = false; };
+  }, [supabase, session, online]);
+
+  async function joinRanking(displayName: string, sex: AthleteSex): Promise<void> {
+    if (supabase === null) throw new Error("El ranking no está disponible en este entorno.");
+    const client = await supabase.client();
+    await joinLeaderboard(client, displayName, sex);
+    setAthlete(await fetchMyAthlete(client));
+    setRankingRefresh((value) => value + 1);
+  }
+
+  async function publishRankingMark(mark: PendingMark): Promise<boolean> {
+    if (supabase === null) throw new Error("El ranking no está disponible en este entorno.");
+    const improved = await publishMark(await supabase.client(), mark);
+    setRankingRefresh((value) => value + 1);
+    return improved;
+  }
+
+  /** Las mejores series de los básicos quedan en cola y se envían si hay cuenta y conexión. */
+  async function sendWorkoutMarks(sets: Array<{ exerciseId: string; loadKg: number; repetitions: number }>): Promise<string | null> {
+    const marks = bestMarks(sets.map((set) => {
+      const exercise = workoutExercises.find((candidate) => candidate.id === set.exerciseId);
+      return { lift: liftForDemonstration(exercise ? demonstrationFor(exercise) : undefined), loadKg: set.loadKg, repetitions: set.repetitions };
+    }), new Date().toISOString());
+    if (marks.length === 0) return null;
+    queueMarks(marks);
+    const names = marks.map((mark) => `${LIFTS.find((lift) => lift.code === mark.lift)?.name} ${formatKg(mark.loadKg)} kg × ${mark.repetitions}`).join(", ");
+    if (supabase === null || session === null || athlete?.enabled !== true) return `Tus marcas (${names}) se van a sumar al ranking cuando entres con tu cuenta.`;
+    if (!online) return `Tus marcas (${names}) se envían al ranking cuando vuelva la conexión.`;
+    try {
+      const { records } = await flushPendingMarks(await supabase.client());
+      setRankingRefresh((value) => value + 1);
+      return records.length > 0 ? `¡Nuevo récord en el ranking! ${names}.` : `Marcas enviadas al ranking: ${names}.`;
+    } catch {
+      return `Tus marcas (${names}) quedaron guardadas y se envían más tarde.`;
+    }
+  }
 
   useEffect(() => {
     if (session === null || apiBaseUrl === undefined) { setVerifiedIdentity(null); setServerIdentityLoading(false); setServerIdentityMessage(null); return; }
@@ -389,10 +458,18 @@ export default function App(): ReactElement {
   }
 
   async function finishWorkout(): Promise<void> {
-    if (!realWorkoutEnabled || serverUser === null || localDatabase === null || activeWorkout === null || clientInstanceId === null) { setDemoSessionStarted(false); setDemoSetsByExercise({}); setWorkoutMessage("La sesión demo se reinició. Para guardar entrenamientos reales, iniciá sesión y conectá el API."); return; }
+    if (!realWorkoutEnabled || serverUser === null || localDatabase === null || activeWorkout === null || clientInstanceId === null) {
+      const demoSets = Object.entries(demoSetsByExercise).flatMap(([exerciseId, sets]) => sets.map((set) => ({ exerciseId, loadKg: set.loadKg, repetitions: set.repetitions })));
+      setDemoSessionStarted(false); setDemoSetsByExercise({});
+      const rankingNote = await sendWorkoutMarks(demoSets);
+      setWorkoutMessage(rankingNote ?? "Sesión finalizada. Registrá series de sentadilla, banca, peso muerto o press militar para entrar al ranking.");
+      return;
+    }
     try {
       const result = await finishOfflineWorkoutSession({ database: localDatabase, ownerId: serverUser.id as UserId, sessionId: activeWorkout.id, operationId: crypto.randomUUID(), clientInstanceId, finishedAt: new Date().toISOString() });
-      setActiveWorkout(null); setWorkoutMessage(`Sesión finalizada localmente con ${result.session.sets.length} series pendientes de sincronizar.`);
+      setActiveWorkout(null);
+      const rankingNote = await sendWorkoutMarks(result.session.sets);
+      setWorkoutMessage(`Sesión finalizada con ${result.session.sets.length} series.${rankingNote ? ` ${rankingNote}` : ""}`);
       await refreshLocalSessions();
       await refreshSyncAttention();
       void drainPendingOutbox();
@@ -444,7 +521,23 @@ export default function App(): ReactElement {
       }
     } catch (error) { setRoutineMessage(toApiMessage(error)); } finally { setRoutineSaving(false); }
   }
-  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> { event.preventDefault(); setAuthMessage(null); if (supabase === null) { setAuthMessage("La autenticación todavía no está configurada en este entorno."); return; } if (!online) { setAuthMessage("Necesitás conexión para iniciar sesión."); return; } setAuthBusy(true); try { const next = await signInWithPassword(supabase, email, password); setSession(next); setPassword(""); } catch (error) { setAuthMessage(toAuthMessage(error)); } finally { setAuthBusy(false); } }
+  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault(); setAuthMessage(null);
+    if (supabase === null) { setAuthMessage("La autenticación todavía no está configurada en este entorno."); return; }
+    if (!online) { setAuthMessage(accountMode === "signup" ? "Necesitás conexión para crear la cuenta." : "Necesitás conexión para iniciar sesión."); return; }
+    if (accountMode === "signup" && signUpSex === null) { setAuthMessage("Elegí en qué tabla del ranking querés aparecer."); return; }
+    setAuthBusy(true);
+    try {
+      if (accountMode === "signup") {
+        const created = await signUpWithPassword(supabase, email, password, { displayName: signUpName, sex: signUpSex! }, window.location.origin);
+        setPassword("");
+        if (created === null) setAuthMessage(`Te mandamos un correo a ${email.trim()}. Tocá el link para activar tu cuenta y vas a entrar directo.`);
+        else setSession(created);
+      } else {
+        const next = await signInWithPassword(supabase, email, password); setSession(next); setPassword("");
+      }
+    } catch (error) { setAuthMessage(toAuthMessage(error)); } finally { setAuthBusy(false); }
+  }
   async function handleSignOut(): Promise<void> { if (supabase === null) return; setAuthMessage(null); setAuthBusy(true); try { await signOut(supabase); setSession(null); } catch (error) { setAuthMessage(toAuthMessage(error)); } finally { setAuthBusy(false); } }
 
   const openRoutine = (routine: RoutineSummary): void => setSelectedRoutine(routine);
@@ -458,10 +551,10 @@ export default function App(): ReactElement {
     : demoSetsByExercise[currentWorkoutExercise.id] ?? [];
   const completedSets = activeWorkout?.sets.length
     ?? Object.values(demoSetsByExercise).reduce((total, sets) => total + sets.length, 0);
-  return <div className="app-shell"><div className="ambient ambient-one" aria-hidden="true" /><div className="ambient ambient-two" aria-hidden="true" /><header className="topbar"><div className="brand-mark" aria-label="FORMA"><span className="brand-symbol">F</span><span>FORMA</span></div><div className="topbar-actions"><span className={`sync-pill ${online ? "is-online" : "is-offline"}`}><span className="sync-dot" aria-hidden="true" />{online ? "Online" : "Offline"}</span><button className="profile-button" type="button" aria-label="Abrir perfil" onClick={() => { supabase?.preload(); setProfileOpen(true); }}>{session?.user.email?.slice(0, 1).toUpperCase() ?? "N"}</button></div></header><main className="app-content">{recoveryOperations.length > 0 ? <SyncRecoveryBanner count={recoveryOperations.length} onOpen={() => setRecoveryOpen(true)} /> : null}{nutritionOpen ? <Suspense fallback={<p className="lazy-loading" role="status">Cargando nutrición…</p>}><NutritionView key={serverUser?.id ?? "demo"} ownerId={serverUser?.id ?? null} onBack={() => setNutritionOpen(false)} /></Suspense> : activeTab === "home" ? <HomeView onStart={() => void startWorkout({ api: null, ...demoRoutines[0]! })} onCreate={() => openRoutineEditor()} onOpenRoutine={openRoutine} onOpenNutrition={() => setNutritionOpen(true)} /> : null}{activeTab === "routines" ? <RoutinesView demoPlans={demoPlans} routines={routines} loading={routinesLoading} message={routineMessage} catalogExercises={catalogExercises ?? []} onCreate={() => openRoutineEditor()} onEdit={openRoutineEditor} onOpenRoutine={openRoutine} /> : null}{activeTab === "train" ? <TrainView key={activeWorkout?.id ?? (demoSessionStarted ? "demo-activa" : "sin-sesion")} started={demoSessionStarted || activeWorkout !== null} activeSession={activeWorkout} workoutName={workoutName} currentExercise={currentWorkoutExercise} exerciseDetails={workoutExerciseDetails} nextExercise={workoutExercises[currentExerciseIndex + 1] ?? null} currentExerciseIndex={currentExerciseIndex} totalExercises={workoutExercises.length} exerciseSets={exerciseSets} completedSets={completedSets} message={workoutMessage} onStart={() => void startWorkout()} onCompleteSet={completeSet} onRemoveSet={removeWorkoutSet} onNextExercise={goToNextExercise} onFinish={() => void finishWorkout()} /> : null}{activeTab === "progress" ? <ProgressView sessions={localSessions} /> : null}{activeTab === "exercises" ? <ExercisesView query={exerciseQuery} onQueryChange={setExerciseQuery} exercises={filteredExercises} loading={catalogLoading} message={catalogMessage} source={catalogExercises === null ? "demo" : "api"} /> : null}</main><nav className="bottom-nav" aria-label="Navegación principal">{tabs.map((tab) => <button className={`nav-item ${activeTab === tab.id ? "is-active" : ""} ${tab.id === "train" ? "train-nav-item" : ""}`} type="button" key={tab.id} onClick={() => { setNutritionOpen(false); setActiveTab(tab.id); }}><span className={tab.id === "train" ? "train-nav-icon" : "nav-icon"}><Icon name={tab.icon} size={tab.id === "train" ? 21 : 19} /></span><span>{tab.label}</span></button>)}</nav>{profileOpen ? <ProfileDrawer session={session} serverUser={serverUser} authLoading={authLoading} authBusy={authBusy} authMessage={authMessage} serverIdentityLoading={serverIdentityLoading} serverIdentityMessage={serverIdentityMessage} email={email} password={password} supabaseConfigured={supabase !== null} online={online} onClose={() => setProfileOpen(false)} onSubmit={(event) => void handleSubmit(event)} onEmailChange={setEmail} onPasswordChange={setPassword} onSignOut={() => void handleSignOut()} /> : null}{selectedRoutine ? <RoutineDetail routine={selectedRoutine} catalogExercises={catalogExercises ?? []} onClose={() => setSelectedRoutine(null)} onStart={() => { setSelectedRoutine(null); void startWorkout(selectedRoutine); }} onEdit={selectedRoutine.demoPlan ? () => { setSelectedRoutine(null); openRoutineEditor(null, selectedRoutine.demoPlan); } : selectedRoutineForEdit === undefined || selectedRoutineForEdit === null ? undefined : () => { setSelectedRoutine(null); openRoutineEditor(selectedRoutineForEdit); }} /> : null}{routineEditorOpen ? <RoutineEditor mode={demoEditor ? "demo" : editingRoutine === null ? "create" : "edit"} initialName={editingDemoPlan?.name ?? editingRoutine?.name ?? ""} initialDescription={editingDemoPlan?.description ?? editingRoutine?.description ?? ""} initialExerciseIds={editingDemoPlan?.exerciseIds ?? editingRoutine?.exercises.filter((item) => item.status === "active").sort((a, b) => a.position - b.position).map((item) => item.exerciseId) ?? []} message={routineMessage} exercises={demoEditor ? demoWorkoutExercises.map((exercise) => ({ id: exercise.id, name: exercise.name, description: exercise.muscle })) : (catalogExercises ?? []).filter((exercise) => exercise.status === "published").map((exercise) => ({ id: exercise.id, name: exercise.name, description: exercise.targetMuscles.join(", ") || exercise.description || "Ejercicio oficial" }))} saving={routineSaving} online={online} onClose={() => setRoutineEditorOpen(false)} onSave={(name, description, exerciseIds) => void saveRoutine(name, description, exerciseIds)} /> : null}{recoveryOpen ? <SyncRecoveryDetails operations={recoveryOperations} onClose={() => setRecoveryOpen(false)} /> : null}</div>;
+  return <div className="app-shell"><div className="ambient ambient-one" aria-hidden="true" /><div className="ambient ambient-two" aria-hidden="true" /><header className="topbar"><div className="brand-mark" aria-label="FORMA"><span className="brand-symbol">F</span><span>FORMA</span></div><div className="topbar-actions"><span className={`sync-pill ${online ? "is-online" : "is-offline"}`}><span className="sync-dot" aria-hidden="true" />{online ? "Online" : "Offline"}</span><button className="profile-button" type="button" aria-label="Abrir perfil" onClick={() => { supabase?.preload(); setProfileOpen(true); }}>{session?.user.email?.slice(0, 1).toUpperCase() ?? "N"}</button></div></header><main className="app-content">{recoveryOperations.length > 0 ? <SyncRecoveryBanner count={recoveryOperations.length} onOpen={() => setRecoveryOpen(true)} /> : null}{nutritionOpen ? <Suspense fallback={<p className="lazy-loading" role="status">Cargando nutrición…</p>}><NutritionView key={serverUser?.id ?? "demo"} ownerId={serverUser?.id ?? null} onBack={() => setNutritionOpen(false)} /></Suspense> : activeTab === "home" ? <HomeView onStart={() => void startWorkout({ api: null, ...demoRoutines[0]! })} onCreate={() => openRoutineEditor()} onOpenRoutine={openRoutine} onOpenNutrition={() => setNutritionOpen(true)} onOpenRanking={() => { setActiveTab("progress"); setProgressSection("ranking"); window.scrollTo({ top: 0 }); }} /> : null}{activeTab === "routines" ? <RoutinesView demoPlans={demoPlans} routines={routines} loading={routinesLoading} message={routineMessage} catalogExercises={catalogExercises ?? []} onCreate={() => openRoutineEditor()} onEdit={openRoutineEditor} onOpenRoutine={openRoutine} /> : null}{activeTab === "train" ? <TrainView key={activeWorkout?.id ?? (demoSessionStarted ? "demo-activa" : "sin-sesion")} started={demoSessionStarted || activeWorkout !== null} activeSession={activeWorkout} workoutName={workoutName} currentExercise={currentWorkoutExercise} exerciseDetails={workoutExerciseDetails} nextExercise={workoutExercises[currentExerciseIndex + 1] ?? null} currentExerciseIndex={currentExerciseIndex} totalExercises={workoutExercises.length} exerciseSets={exerciseSets} completedSets={completedSets} message={workoutMessage} onStart={() => void startWorkout()} onCompleteSet={completeSet} onRemoveSet={removeWorkoutSet} onNextExercise={goToNextExercise} onFinish={() => void finishWorkout()} /> : null}{activeTab === "progress" ? <><div className="segmented-control progress-switch" role="group" aria-label="Sección de progreso"><button type="button" className={progressSection === "mine" ? "is-selected" : undefined} aria-pressed={progressSection === "mine"} onClick={() => setProgressSection("mine")}>Mi progreso</button><button type="button" className={progressSection === "ranking" ? "is-selected" : undefined} aria-pressed={progressSection === "ranking"} onClick={() => setProgressSection("ranking")}>Ranking</button></div>{progressSection === "mine" ? <ProgressView sessions={localSessions} /> : <Suspense fallback={<p className="lazy-loading" role="status">Cargando ranking…</p>}><RankingView loadClient={supabase?.client ?? null} signedIn={session !== null} athlete={athlete} online={online} refreshKey={rankingRefresh} onCreateAccount={() => { setAccountMode("signup"); setAuthMessage(null); supabase?.preload(); setProfileOpen(true); }} onSignIn={() => { setAccountMode("signin"); setAuthMessage(null); supabase?.preload(); setProfileOpen(true); }} onJoin={joinRanking} onPublish={publishRankingMark} /></Suspense>}</> : null}{activeTab === "exercises" ? <ExercisesView query={exerciseQuery} onQueryChange={setExerciseQuery} exercises={filteredExercises} loading={catalogLoading} message={catalogMessage} source={catalogExercises === null ? "demo" : "api"} /> : null}</main><nav className="bottom-nav" aria-label="Navegación principal">{tabs.map((tab) => <button className={`nav-item ${activeTab === tab.id ? "is-active" : ""} ${tab.id === "train" ? "train-nav-item" : ""}`} type="button" key={tab.id} onClick={() => { setNutritionOpen(false); setActiveTab(tab.id); }}><span className={tab.id === "train" ? "train-nav-icon" : "nav-icon"}><Icon name={tab.icon} size={tab.id === "train" ? 21 : 19} /></span><span>{tab.label}</span></button>)}</nav>{profileOpen ? <ProfileDrawer session={session} serverUser={serverUser} authLoading={authLoading} authBusy={authBusy} authMessage={authMessage} serverIdentityLoading={serverIdentityLoading} serverIdentityMessage={serverIdentityMessage} email={email} password={password} supabaseConfigured={supabase !== null} online={online} mode={accountMode} signUpName={signUpName} signUpSex={signUpSex} athlete={athlete} onModeChange={(mode) => { setAccountMode(mode); setAuthMessage(null); }} onSignUpNameChange={setSignUpName} onSignUpSexChange={setSignUpSex} onOpenRanking={() => { setProfileOpen(false); setNutritionOpen(false); setActiveTab("progress"); setProgressSection("ranking"); }} onClose={() => setProfileOpen(false)} onSubmit={(event) => void handleSubmit(event)} onEmailChange={setEmail} onPasswordChange={setPassword} onSignOut={() => void handleSignOut()} /> : null}{selectedRoutine ? <RoutineDetail routine={selectedRoutine} catalogExercises={catalogExercises ?? []} onClose={() => setSelectedRoutine(null)} onStart={() => { setSelectedRoutine(null); void startWorkout(selectedRoutine); }} onEdit={selectedRoutine.demoPlan ? () => { setSelectedRoutine(null); openRoutineEditor(null, selectedRoutine.demoPlan); } : selectedRoutineForEdit === undefined || selectedRoutineForEdit === null ? undefined : () => { setSelectedRoutine(null); openRoutineEditor(selectedRoutineForEdit); }} /> : null}{routineEditorOpen ? <RoutineEditor mode={demoEditor ? "demo" : editingRoutine === null ? "create" : "edit"} initialName={editingDemoPlan?.name ?? editingRoutine?.name ?? ""} initialDescription={editingDemoPlan?.description ?? editingRoutine?.description ?? ""} initialExerciseIds={editingDemoPlan?.exerciseIds ?? editingRoutine?.exercises.filter((item) => item.status === "active").sort((a, b) => a.position - b.position).map((item) => item.exerciseId) ?? []} message={routineMessage} exercises={demoEditor ? demoWorkoutExercises.map((exercise) => ({ id: exercise.id, name: exercise.name, description: exercise.muscle })) : (catalogExercises ?? []).filter((exercise) => exercise.status === "published").map((exercise) => ({ id: exercise.id, name: exercise.name, description: exercise.targetMuscles.join(", ") || exercise.description || "Ejercicio oficial" }))} saving={routineSaving} online={online} onClose={() => setRoutineEditorOpen(false)} onSave={(name, description, exerciseIds) => void saveRoutine(name, description, exerciseIds)} /> : null}{recoveryOpen ? <SyncRecoveryDetails operations={recoveryOperations} onClose={() => setRecoveryOpen(false)} /> : null}</div>;
 }
 
-function HomeView({ onStart, onCreate, onOpenRoutine, onOpenNutrition }: { onStart: () => void; onCreate: () => void; onOpenRoutine: (routine: RoutineSummary) => void; onOpenNutrition: () => void }): ReactElement {
+function HomeView({ onStart, onCreate, onOpenRoutine, onOpenNutrition, onOpenRanking }: { onStart: () => void; onCreate: () => void; onOpenRoutine: (routine: RoutineSummary) => void; onOpenNutrition: () => void; onOpenRanking: () => void }): ReactElement {
   return <div className="screen-stack">
     <section className="welcome-block">
       <div><p className="eyebrow">MI ENTRENAMIENTO</p><h1>Entrená con intención.</h1><p className="screen-subtitle">Una sesión consistente vale más que una sesión perfecta.</p></div>
@@ -474,6 +567,7 @@ function HomeView({ onStart, onCreate, onOpenRoutine, onOpenNutrition }: { onSta
     </section>
     <section className="quick-start-row"><div><span className="card-kicker">ÚLTIMA SESIÓN</span><strong>Torso · Hipertrofia</strong><small>Completada ayer · 48 min</small></div><button className="ghost-button" type="button" onClick={() => onOpenRoutine({ api: null, ...demoRoutines[1]! })}>Ver rutina <Icon name="chevron" size={15} /></button></section>
     <section><div className="section-heading"><div><p className="eyebrow">RESUMEN</p><h2>Tu semana</h2></div><button className="text-button" type="button">Ver todo <Icon name="chevron" size={15} /></button></div><div className="metric-grid"><MetricCard label="Sesiones" value="4" detail="+1 esta semana" accent="violet" /><MetricCard label="Volumen" value="12.480" detail="kg movidos" accent="blue" /><MetricCard label="Racha" value="12" detail="días seguidos" accent="orange" /></div></section>
+    <button className="ranking-teaser" type="button" onClick={onOpenRanking}><span className="ranking-teaser-photos" aria-hidden="true">{(["squat", "bench", "conventional", "ohp"] as const).map((key) => <img key={key} src={exercisePhotoFor(key)} alt="" width={240} height={240} loading="lazy" />)}</span><span className="ranking-teaser-copy"><strong>Ranking de pesos pesados</strong><small>Sentadilla, banca, peso muerto y press militar. ¿Dónde estás vos?</small></span><Icon name="chevron" size={18} /></button>
     <section className="nutrition-preview-card"><div><p className="eyebrow">NUTRICIÓN</p><h2>También cuenta lo que comés.</h2><p>Definí tus metas y llevá un registro simple de tus macros.</p></div><button className="secondary-button" type="button" onClick={onOpenNutrition}>Ver mi nutrición <Icon name="arrow" size={16} /></button></section>
     <section><div className="section-heading"><div><p className="eyebrow">TUS RUTINAS</p><h2>Seguí progresando</h2></div><button className="icon-button" type="button" aria-label="Agregar rutina" onClick={onCreate}><Icon name="plus" size={18} /></button></div><div className="routine-preview-list">{demoRoutines.slice(0, 2).map((routine) => <RoutinePreview key={routine.name} routine={routine} onOpen={() => onOpenRoutine({ api: null, ...routine })} />)}</div><small className="screen-footnote">Datos de demostración visual hasta conectar tu identidad y tu historial.</small></section>
   </div>;
@@ -740,7 +834,49 @@ function DetailSection({ title, children }: { title: string; children: ReactNode
   return <section className="detail-section"><h3 className="eyebrow">{title}</h3>{children}</section>;
 }
 
-function ProfileDrawer({ session, serverUser, authLoading, authBusy, authMessage, serverIdentityLoading, serverIdentityMessage, email, password, supabaseConfigured, online, onClose, onSubmit, onEmailChange, onPasswordChange, onSignOut }: { session: Session | null; serverUser: ApiUser | null; authLoading: boolean; authBusy: boolean; authMessage: string | null; serverIdentityLoading: boolean; serverIdentityMessage: string | null; email: string; password: string; supabaseConfigured: boolean; online: boolean; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onEmailChange: (value: string) => void; onPasswordChange: (value: string) => void; onSignOut: () => void }): ReactElement { return <div className="drawer-layer" role="presentation" onClick={onClose}><div className="profile-drawer" role="dialog" aria-modal="true" aria-labelledby="profile-title" onClick={(event) => event.stopPropagation()}><div className="drawer-header"><div><p className="eyebrow">CUENTA</p><h2 id="profile-title">Tu perfil</h2></div><button className="close-button" type="button" onClick={onClose} aria-label="Cerrar perfil">×</button></div>{authLoading ? <p className="muted">Comprobando sesión…</p> : null}{!authLoading && session !== null ? <div className="profile-authenticated"><div className="profile-large-avatar">{session.user.email?.slice(0, 1).toUpperCase() ?? "N"}</div><h3>{session.user.email ?? "Atleta FORMA"}</h3><p className="muted">Sesión online activa</p>{serverIdentityLoading ? <p className="muted">Validando identidad interna…</p> : null}{serverUser !== null ? <p className="server-identity">Identidad FORMA validada · {serverUser.role}</p> : null}{serverIdentityMessage !== null ? <p className="form-error" role="alert">{serverIdentityMessage}</p> : null}<p className="security-note">La sesión offline todavía no conserva credenciales. Tus entrenamientos locales sí se guardan en el dispositivo.</p><button className="secondary-button" type="button" onClick={onSignOut} disabled={authBusy}><Icon name="logout" size={16} /> {authBusy ? "Cerrando…" : "Cerrar sesión"}</button></div> : null}{!authLoading && session === null ? <form className="drawer-auth-form" onSubmit={onSubmit}><div className="auth-intro"><div className="profile-large-avatar"><Icon name="profile" size={24} /></div><h3>Entrá a FORMA</h3><p className="muted">Sincronizá tu identidad cuando vuelvas a tener conexión.</p></div><label>Correo<input type="email" autoComplete="email" value={email} onChange={(event) => onEmailChange(event.target.value)} required /></label><label>Contraseña<input type="password" autoComplete="current-password" value={password} onChange={(event) => onPasswordChange(event.target.value)} required /></label><button className="primary-button full-button" type="submit" disabled={authBusy || !supabaseConfigured}>{authBusy ? "Ingresando…" : "Iniciar sesión"}</button>{!supabaseConfigured ? <p className="security-note">Configurá las variables VITE_SUPABASE_* para habilitar este entorno.</p> : null}{authMessage !== null ? <p className="form-error" role="alert">{authMessage}</p> : null}</form> : null}<OfflineMediaCard online={online} /><div className="drawer-footer"><span>FORMA · diseño inicial</span><span>v0.1</span></div></div></div>; }
+type ProfileDrawerProps = { session: Session | null; serverUser: ApiUser | null; authLoading: boolean; authBusy: boolean; authMessage: string | null; serverIdentityLoading: boolean; serverIdentityMessage: string | null; email: string; password: string; supabaseConfigured: boolean; online: boolean; mode: "signin" | "signup"; signUpName: string; signUpSex: AthleteSex | null; athlete: Athlete | null; onModeChange: (mode: "signin" | "signup") => void; onSignUpNameChange: (value: string) => void; onSignUpSexChange: (value: AthleteSex) => void; onOpenRanking: () => void; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onEmailChange: (value: string) => void; onPasswordChange: (value: string) => void; onSignOut: () => void };
+function ProfileDrawer({ session, serverUser, authLoading, authBusy, authMessage, serverIdentityLoading, serverIdentityMessage, email, password, supabaseConfigured, online, mode, signUpName, signUpSex, athlete, onModeChange, onSignUpNameChange, onSignUpSexChange, onOpenRanking, onClose, onSubmit, onEmailChange, onPasswordChange, onSignOut }: ProfileDrawerProps): ReactElement {
+  const signup = mode === "signup";
+  const displayName = athlete?.displayName ?? (typeof session?.user.user_metadata.display_name === "string" ? session.user.user_metadata.display_name : null);
+  return <div className="drawer-layer" role="presentation" onClick={onClose}><div className="profile-drawer" role="dialog" aria-modal="true" aria-labelledby="profile-title" onClick={(event) => event.stopPropagation()}>
+    <div className="drawer-header"><div><p className="eyebrow">CUENTA</p><h2 id="profile-title">Tu perfil</h2></div><button className="close-button" type="button" onClick={onClose} aria-label="Cerrar perfil">×</button></div>
+    {authLoading ? <p className="muted">Comprobando sesión…</p> : null}
+    {!authLoading && session !== null ? <div className="profile-authenticated">
+      <div className="profile-large-avatar">{(displayName ?? session.user.email ?? "F").slice(0, 1).toUpperCase()}</div>
+      <h3>{displayName ?? session.user.email ?? "Atleta FORMA"}</h3>
+      <p className="muted">{session.user.email}</p>
+      {serverIdentityLoading ? <p className="muted">Validando identidad interna…</p> : null}
+      {serverUser !== null ? <p className="server-identity">Identidad FORMA validada · {serverUser.role}</p> : null}
+      {serverIdentityMessage !== null ? <p className="form-error" role="alert">{serverIdentityMessage}</p> : null}
+      <div className="profile-ranking">
+        <p>{athlete?.enabled ? `Aparecés en el ranking como ${athlete.displayName}, en la tabla de ${athlete.sex === "F" ? "mujeres" : "hombres"}.` : "Todavía no aparecés en el ranking."}</p>
+        <button className="secondary-button" type="button" onClick={onOpenRanking}>{athlete?.enabled ? "Ver ranking" : "Sumarme al ranking"}</button>
+      </div>
+      <p className="security-note">Tu sesión queda guardada en este teléfono. Tus entrenamientos también se guardan acá.</p>
+      <button className="secondary-button" type="button" onClick={onSignOut} disabled={authBusy}><Icon name="logout" size={16} /> {authBusy ? "Cerrando…" : "Cerrar sesión"}</button>
+    </div> : null}
+    {!authLoading && session === null ? <form className="drawer-auth-form" onSubmit={onSubmit}>
+      <div className="auth-intro"><h3>{signup ? "Creá tu cuenta" : "Entrá a FORMA"}</h3><p className="muted">{signup ? "Con tu cuenta, tus mejores marcas entran al ranking de pesos pesados." : "Entrá para ver tu lugar en el ranking y guardar tus marcas."}</p></div>
+      <div className="segmented-control auth-mode" role="group" aria-label="Tipo de acceso">
+        <button type="button" className={!signup ? "is-selected" : undefined} aria-pressed={!signup} onClick={() => onModeChange("signin")}>Entrar</button>
+        <button type="button" className={signup ? "is-selected" : undefined} aria-pressed={signup} onClick={() => onModeChange("signup")}>Crear cuenta</button>
+      </div>
+      {signup ? <>
+        <label>Nombre visible en el ranking<input autoComplete="nickname" value={signUpName} onChange={(event) => onSignUpNameChange(event.target.value)} maxLength={40} required /></label>
+        <fieldset className="rk-sex-pick"><legend>Tabla del ranking</legend>
+          {(["M", "F"] as const).map((value) => <label key={value} className={signUpSex === value ? "is-on" : undefined}><input type="radio" name="signup-sex" checked={signUpSex === value} onChange={() => onSignUpSexChange(value)} />{value === "M" ? "Hombres" : "Mujeres"}</label>)}
+        </fieldset>
+      </> : null}
+      <label>Correo<input type="email" autoComplete="email" value={email} onChange={(event) => onEmailChange(event.target.value)} required /></label>
+      <label>Contraseña<input type="password" autoComplete={signup ? "new-password" : "current-password"} minLength={signup ? 8 : undefined} value={password} onChange={(event) => onPasswordChange(event.target.value)} required />{signup ? <small className="field-hint">Al menos 8 caracteres.</small> : null}</label>
+      <button className="primary-button full-button" type="submit" disabled={authBusy || !supabaseConfigured || !online}>{authBusy ? (signup ? "Creando cuenta…" : "Entrando…") : signup ? "Crear cuenta" : "Entrar"}</button>
+      {!supabaseConfigured ? <p className="security-note">Configurá las variables VITE_SUPABASE_* para habilitar este entorno.</p> : !online ? <p className="security-note">Necesitás conexión para entrar o crear tu cuenta.</p> : null}
+      {authMessage !== null ? <p className={/correo a/.test(authMessage) ? "auth-success" : "form-error"} role={/correo a/.test(authMessage) ? "status" : "alert"}>{authMessage}</p> : null}
+    </form> : null}
+    <OfflineMediaCard online={online} />
+    <div className="drawer-footer"><span>FORMA</span><span>v0.2</span></div>
+  </div></div>;
+}
 
 function SyncRecoveryBanner({ count, onOpen }: { count: number; onOpen: () => void }): ReactElement {
   return <section className="sync-recovery-banner" role="alert"><div><span className="recovery-icon">!</span><div><strong>Hay operaciones que necesitan revisión</strong><p>{count} operación{count === 1 ? "" : "es"} quedó conservada sin sobrescritura automática.</p></div></div><button type="button" onClick={onOpen}>Ver detalles</button></section>;

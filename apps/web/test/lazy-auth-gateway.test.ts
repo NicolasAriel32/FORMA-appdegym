@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createLazyAuthGateway } from "../src/platform/lazy-auth-gateway.js";
+import { createLazyAuthGateway, needsEagerAuth } from "../src/platform/lazy-auth-gateway.js";
 
 const config = { url: "https://forma.supabase.co", publishableKey: "sb_publishable_test" };
 
@@ -11,6 +11,7 @@ function fakeClient() {
     auth: {
       getSession: async () => ({ data: { session: { user: { email: "a@b.c" } } }, error: null }),
       signInWithPassword: async () => { emit("SIGNED_IN", { user: { email: "a@b.c" } }); return { data: { session: { user: { email: "a@b.c" } } }, error: null }; },
+      signUp: async () => ({ data: { session: null }, error: null }),
       signOut: async () => ({ error: null }),
       onAuthStateChange: (callback: (event: string, session: unknown) => void) => { emit = callback; return { data: { subscription: { unsubscribe: () => undefined } } }; },
     },
@@ -46,4 +47,17 @@ test("lazy auth gateway retries loading after a network failure", async () => {
   await assert.rejects(gateway.auth.signInWithPassword({ email: "a@b.c", password: "x" }));
   await gateway.auth.signInWithPassword({ email: "a@b.c", password: "x" });
   assert.equal(attempts, 2);
+});
+
+test("a stored session or a confirmation link loads Supabase when the app opens", async () => {
+  const storage = (keys: string[]) => ({ length: keys.length, key: (index: number) => keys[index] ?? null });
+  const here = { hash: "", search: "" };
+  assert.equal(needsEagerAuth(storage([]), here), false);
+  assert.equal(needsEagerAuth(storage(["forma.demo-plans.v1"]), here), false);
+  assert.equal(needsEagerAuth(storage(["sb-tdujzupsvzxrrbnhmtoj-auth-token"]), here), true);
+  assert.equal(needsEagerAuth(storage([]), { hash: "#access_token=abc&type=signup", search: "" }), true);
+  let loads = 0;
+  const gateway = createLazyAuthGateway(config, async () => { loads += 1; return fakeClient(); }, () => true);
+  assert.equal((await gateway.auth.getSession()).data.session?.user.email, "a@b.c");
+  assert.equal(loads, 1);
 });

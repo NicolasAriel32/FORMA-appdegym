@@ -9,10 +9,12 @@ export type WebSupabaseConfig = {
   publishableKey: string;
 };
 
+// La sesión queda guardada en el teléfono y se renueva sola (ADR 0009, reemplaza la parte de sesión del ADR 0003).
+// detectSessionInUrl permite entrar directo desde el link de confirmación del correo.
 export const WEB_AUTH_OPTIONS = {
-  persistSession: false,
-  autoRefreshToken: false,
-  detectSessionInUrl: false,
+  persistSession: true,
+  autoRefreshToken: true,
+  detectSessionInUrl: true,
 } as const;
 
 export function readWebSupabaseConfig(

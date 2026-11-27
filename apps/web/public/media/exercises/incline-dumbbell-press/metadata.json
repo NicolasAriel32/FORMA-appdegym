@@ -6,7 +6,7 @@
   "phases": [
     "bottom",
     "low",
-    "near-top",
+    "mid-push",
     "top"
   ],
   "targetMuscles": [
@@ -27,5 +27,5 @@
   "reviewedAt": null,
   "reviewer": null,
   "sourceBlend": null,
-  "notes": "Provisorio: falta una pose entre la 2 y la 3 (mancuernas a mitad del empuje) para evitar el brazo duplicado. Generado con --flow-scale 3. Requiere revisión profesional."
+  "notes": "Provisorio: en la pose final la cabeza aparece más abajo que en las demás y genera un fantasma en el último tramo. Regenerar la pose final editando la pose de mitad de empuje. Generado con --flow-scale 3. Requiere revisión profesional."
 }

@@ -3,6 +3,9 @@
 Uso: python3 tools/make_exercise_loop.py [--pad-top 0.22] [--flow-scale 3] inicio.png [intermedias.png ...] final.png carpeta_salida
   --pad-top: agrega fondo arriba (fracción de la altura) si el equipo queda cortado al alinear.
   --flow-scale: calcula el movimiento a menor resolución; ayuda cuando la barra cruza la cara.
+  --transition N: cuadros por transición (por defecto automático). Usá 5 cuando un brazo fino gira
+      mucho (elevaciones laterales): el fantasma dura un instante y se lee como desenfoque.
+  --hold-mid N: cuadros de pausa en cada pose intermedia (por defecto 0).
 Genera repetition-pilot.mp4, poster.webp y animation-NN.webp en 1008x672.
 Alinea las poses sobre la base del equipo y las une con morph por flujo óptico.
 Si el equipo se desplaza mucho entre dos imágenes, agregá una pose intermedia.
@@ -25,7 +28,7 @@ def align(img, ref):
     if A is None or inl.sum() < 12: return img
     return cv2.warpAffine(img, A, (ref.shape[1], ref.shape[0]), borderMode=cv2.BORDER_REPLICATE)
 
-def main(paths, out_dir, pad_top=0.0, flow_scale=1):
+def main(paths, out_dir, pad_top=0.0, flow_scale=1, transition=None, hold_mid=0):
     raw = [cv2.imread(p) for p in paths]
     if pad_top > 0:
         raw = [cv2.copyMakeBorder(x, int(x.shape[0] * pad_top), 0, 0, 0, cv2.BORDER_REPLICATE) for x in raw]
@@ -43,7 +46,7 @@ def main(paths, out_dir, pad_top=0.0, flow_scale=1):
         return wa.astype(np.float32) * (1 - t) + wb.astype(np.float32) * t
     ease = lambda t: 0.5 - 0.5 * np.cos(np.pi * t)
     steps = len(poses) - 1
-    per = max(10, round(29 / steps))  # cuadros por transición: más poses, transiciones más cortas
+    per = transition or max(10, round(29 / steps))  # cuadros por transición: más poses, transiciones más cortas
     def calc(a, b):
         if flow_scale == 1: return dis.calc(gray(a), gray(b), None)
         size = (W // flow_scale, H // flow_scale)
@@ -54,9 +57,13 @@ def main(paths, out_dir, pad_top=0.0, flow_scale=1):
     hold = lambda a, n: seq.extend([a.astype(np.float32)] * n)
     def tr(a, b, fab, fba, n): seq.extend(morph(a, b, fab, fba, ease((i + 1) / n)) for i in range(n))
     hold(poses[0], 12)
-    for i in range(steps): tr(poses[i], poses[i + 1], flows[i][0], flows[i][1], per)
+    for i in range(steps):
+        tr(poses[i], poses[i + 1], flows[i][0], flows[i][1], per)
+        if i < steps - 1 and hold_mid: hold(poses[i + 1], hold_mid)
     hold(poses[-1], 10)
-    for i in reversed(range(steps)): tr(poses[i + 1], poses[i], flows[i][1], flows[i][0], per)
+    for i in reversed(range(steps)):
+        tr(poses[i + 1], poses[i], flows[i][1], flows[i][0], per)
+        if i > 0 and hold_mid: hold(poses[i], hold_mid)
     hold(poses[0], 4)
     os.makedirs(out_dir, exist_ok=True)
     for old in os.listdir(out_dir):
@@ -75,6 +82,8 @@ if __name__ == "__main__":
         key = args.pop(0)
         if key == "--pad-top": opts["pad_top"] = float(args.pop(0))
         elif key == "--flow-scale": opts["flow_scale"] = int(args.pop(0))
+        elif key == "--transition": opts["transition"] = int(args.pop(0))
+        elif key == "--hold-mid": opts["hold_mid"] = int(args.pop(0))
         else: sys.exit(__doc__)
     if len(args) < 4: sys.exit(__doc__)
     main(args[:-1], args[-1], **opts)

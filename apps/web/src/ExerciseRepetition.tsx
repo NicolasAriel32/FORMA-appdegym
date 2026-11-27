@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ReactElement, RefObject } from "react";
 
-export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline" | "pushdown" | "lunge" | "legext" | "legcurl" | "hipthrust" | "dbrow" | "cablerow";
+export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline" | "pushdown" | "lunge" | "legext" | "legcurl" | "hipthrust" | "dbrow" | "cablerow" | "lateral";
 export type ExerciseVisualMode = "movement" | "muscles";
 
 const media = {
@@ -25,6 +25,13 @@ const media = {
     duration: 4.2,
     equipment: "Carga de referencia · 2 discos de 20 kg por lado",
     focus: "Cadena posterior",
+  },
+  lateral: {
+    folder: "/media/exercises/lateral-raise",
+    label: "Elevaciones laterales con mancuernas en vista frontal de tres cuartos",
+    duration: 3.8,
+    equipment: "Un par de mancuernas",
+    focus: "Deltoides medio",
   },
   cablerow: {
     folder: "/media/exercises/seated-cable-row",

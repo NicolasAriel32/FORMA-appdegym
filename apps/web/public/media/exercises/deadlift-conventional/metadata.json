@@ -5,7 +5,8 @@
   "status": "pilot",
   "phases": [
     "floor",
-    "knee",
+    "below-knee",
+    "above-knee",
     "lockout"
   ],
   "targetMuscles": [
@@ -25,9 +26,9 @@
   ],
   "camera": "three-quarter side",
   "resolution": "1008 × 672 MP4 y WebP",
-  "durationSeconds": 4.1,
+  "durationSeconds": 4.3,
   "reviewedAt": null,
   "reviewer": null,
   "sourceBlend": null,
-  "notes": "Provisorio: falta una pose intermedia (barra bajo las rodillas) para que el tramo piso-rodilla no se deforme. Requiere revisión profesional."
+  "notes": "Cuatro imágenes generadas con IA (piso, bajo rodilla, sobre rodilla, de pie) alineadas y unidas con morph por flujo óptico. Requiere revisión profesional."
 }

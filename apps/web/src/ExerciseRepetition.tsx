@@ -29,7 +29,7 @@ const media = {
   conventional: {
     folder: "/media/exercises/deadlift-conventional",
     label: "Peso muerto convencional con barra en vista de tres cuartos",
-    duration: 4.1,
+    duration: 4.3,
     equipment: "Carga de referencia · 1 disco de 20 kg por lado",
     focus: "Cadena posterior",
   },

@@ -1,0 +1,30 @@
+{
+  "exerciseId": "barbell-curl",
+  "name": "Curl con barra",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [
+    "down",
+    "mid",
+    "top"
+  ],
+  "targetMuscles": [
+    "Bíceps braquial"
+  ],
+  "secondaryMuscles": [
+    "Braquial",
+    "Braquiorradial",
+    "Antebrazos"
+  ],
+  "equipment": [
+    "Barra recta",
+    "Discos"
+  ],
+  "camera": "three-quarter front",
+  "resolution": "1008 × 672 MP4 y WebP",
+  "durationSeconds": 2.9,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Provisorio: con 3 poses la barra se duplica; faltan dos poses intermedias (antebrazos a 45° hacia abajo y a 45° hacia arriba). Transiciones cortas (--flow-scale 3 --transition 5 --hold-mid 6). Requiere revisión profesional."
+}

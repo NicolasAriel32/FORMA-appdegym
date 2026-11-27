@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ReactElement, RefObject } from "react";
 
-export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline" | "pushdown" | "lunge" | "legext" | "legcurl" | "hipthrust" | "dbrow" | "cablerow" | "lateral" | "facepull";
+export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline" | "pushdown" | "lunge" | "legext" | "legcurl" | "hipthrust" | "dbrow" | "cablerow" | "lateral" | "facepull" | "bbcurl";
 export type ExerciseVisualMode = "movement" | "muscles";
 
 const media = {
@@ -25,6 +25,13 @@ const media = {
     duration: 4.2,
     equipment: "Carga de referencia · 2 discos de 20 kg por lado",
     focus: "Cadena posterior",
+  },
+  bbcurl: {
+    folder: "/media/exercises/barbell-curl",
+    label: "Curl de bíceps con barra recta en vista frontal de tres cuartos",
+    duration: 2.9,
+    equipment: "Carga de referencia · 1 disco de 10 kg por lado",
+    focus: "Bíceps",
   },
   facepull: {
     folder: "/media/exercises/face-pull",

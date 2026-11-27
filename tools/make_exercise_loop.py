@@ -1,6 +1,8 @@
 """Arma el loop de un ejercicio desde 3 o más imágenes en orden (inicio … final).
 
-Uso: python3 tools/make_exercise_loop.py inicio.png [intermedias.png ...] final.png carpeta_salida
+Uso: python3 tools/make_exercise_loop.py [--pad-top 0.22] [--flow-scale 3] inicio.png [intermedias.png ...] final.png carpeta_salida
+  --pad-top: agrega fondo arriba (fracción de la altura) si el equipo queda cortado al alinear.
+  --flow-scale: calcula el movimiento a menor resolución; ayuda cuando la barra cruza la cara.
 Genera repetition-pilot.mp4, poster.webp y animation-NN.webp en 1008x672.
 Alinea las poses sobre la base del equipo y las une con morph por flujo óptico.
 Si el equipo se desplaza mucho entre dos imágenes, agregá una pose intermedia.
@@ -23,8 +25,10 @@ def align(img, ref):
     if A is None or inl.sum() < 12: return img
     return cv2.warpAffine(img, A, (ref.shape[1], ref.shape[0]), borderMode=cv2.BORDER_REPLICATE)
 
-def main(paths, out_dir):
+def main(paths, out_dir, pad_top=0.0, flow_scale=1):
     raw = [cv2.imread(p) for p in paths]
+    if pad_top > 0:
+        raw = [cv2.copyMakeBorder(x, int(x.shape[0] * pad_top), 0, 0, 0, cv2.BORDER_REPLICATE) for x in raw]
     ref = raw[len(raw) // 2]
     raw = [cv2.resize(x, (ref.shape[1], ref.shape[0])) for x in raw]
     poses = [x if x is ref else align(x, ref) for x in raw]
@@ -40,7 +44,12 @@ def main(paths, out_dir):
     ease = lambda t: 0.5 - 0.5 * np.cos(np.pi * t)
     steps = len(poses) - 1
     per = max(10, round(29 / steps))  # cuadros por transición: más poses, transiciones más cortas
-    flows = [(dis.calc(gray(a), gray(b), None), dis.calc(gray(b), gray(a), None)) for a, b in zip(poses, poses[1:])]
+    def calc(a, b):
+        if flow_scale == 1: return dis.calc(gray(a), gray(b), None)
+        size = (W // flow_scale, H // flow_scale)
+        small = dis.calc(cv2.resize(gray(a), size, interpolation=cv2.INTER_AREA), cv2.resize(gray(b), size, interpolation=cv2.INTER_AREA), None)
+        return cv2.resize(small, (W, H)) * flow_scale
+    flows = [(calc(a, b), calc(b, a)) for a, b in zip(poses, poses[1:])]
     seq = []
     hold = lambda a, n: seq.extend([a.astype(np.float32)] * n)
     def tr(a, b, fab, fba, n): seq.extend(morph(a, b, fab, fba, ease((i + 1) / n)) for i in range(n))
@@ -61,5 +70,11 @@ def main(paths, out_dir):
     print(f"{len(seq)} cuadros · {len(seq) / FPS:.1f} s")
 
 if __name__ == "__main__":
-    if len(sys.argv) < 5: sys.exit(__doc__)
-    main(sys.argv[1:-1], sys.argv[-1])
+    args, opts = sys.argv[1:], {}
+    while args and args[0].startswith("--"):
+        key = args.pop(0)
+        if key == "--pad-top": opts["pad_top"] = float(args.pop(0))
+        elif key == "--flow-scale": opts["flow_scale"] = int(args.pop(0))
+        else: sys.exit(__doc__)
+    if len(args) < 4: sys.exit(__doc__)
+    main(args[:-1], args[-1], **opts)

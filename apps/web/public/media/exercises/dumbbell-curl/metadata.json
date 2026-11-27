@@ -1,0 +1,30 @@
+{
+  "exerciseId": "dumbbell-curl",
+  "name": "Curl con mancuernas",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [
+    "down",
+    "mid-a",
+    "mid-b",
+    "top"
+  ],
+  "targetMuscles": [
+    "Bíceps braquial"
+  ],
+  "secondaryMuscles": [
+    "Braquial",
+    "Braquiorradial",
+    "Antebrazos"
+  ],
+  "equipment": [
+    "Mancuernas"
+  ],
+  "camera": "three-quarter front",
+  "resolution": "1008 × 672 MP4 y WebP",
+  "durationSeconds": 3.7,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Provisorio: las poses 2 y 3 son casi iguales; faltan poses a 45° hacia abajo y a 45° hacia arriba. Transiciones cortas (--flow-scale 3 --transition 6 --hold-mid 3). Requiere revisión profesional."
+}

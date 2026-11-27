@@ -186,3 +186,18 @@ test("sync changes reject an unexpected cursor without advancing local state", a
     database.close();
   }
 });
+
+test("a pulled set removal deletes the set once and tolerates repeats", async () => {
+  const database = await openLocalDatabase(indexedDB, `forma-test-${randomUUID()}`);
+  try {
+    const change = (cursor: string, revision: number, payload: Record<string, unknown>) => ({ cursor, changeId: `change-${cursor}`, aggregateType: "workout_session", aggregateId: "session-1", revision, payload });
+    await applySyncChanges(database, { scopeId: "user-1", fromCursor: null, nextCursor: "2", changes: [
+      change("1", 1, { kind: "workout_session_started", sessionId: "session-1", ownerId: "user-1", createdAt: "2026-11-03T10:00:00.000Z", startedAt: "2026-11-03T10:01:00.000Z" }),
+      change("2", 2, { kind: "workout_set_added", sessionId: "session-1", set: { id: "set-1", exerciseId: "exercise-1", repetitions: 8, loadKg: 80, createdAt: "2026-11-03T10:02:00.000Z" } }),
+    ] });
+    await applySyncChanges(database, { scopeId: "user-1", fromCursor: "2", nextCursor: "3", changes: [change("3", 3, { kind: "workout_set_removed", sessionId: "session-1", setId: "set-1" })] });
+    assert.equal((await getSession(database, "session-1"))?.sets.length, 0);
+  } finally {
+    database.close();
+  }
+});

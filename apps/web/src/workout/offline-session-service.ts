@@ -1,5 +1,6 @@
 import {
   addSet,
+  removeSet,
   createPreparedSession,
   finishSessionLocally,
   startSession,
@@ -115,6 +116,43 @@ export async function appendOfflineWorkoutSet({
     contractVersion: "workout-session-v1",
     payload: { kind: "workout_set_added", sessionId: session.id, set },
     createdAt,
+  });
+  await persistSessionAndOperation(database, session, operation, { expectedSession: current });
+  return { session, operation };
+}
+
+export type RemoveOfflineWorkoutSetInput = {
+  database: LocalDatabase;
+  ownerId: UserId;
+  sessionId: SessionId;
+  operationId: string;
+  clientInstanceId: string;
+  setId: SetId;
+  removedAt: string;
+};
+
+export async function removeOfflineWorkoutSet({
+  database,
+  ownerId,
+  sessionId,
+  operationId,
+  clientInstanceId,
+  setId,
+  removedAt,
+}: RemoveOfflineWorkoutSetInput): Promise<OfflineSessionStartResult> {
+  const current = await getSession(database, sessionId);
+  if (current === undefined) throw new Error("local workout session was not found");
+  const session = removeSet(current, ownerId, setId);
+  const operation = createPendingOperation({
+    operationId,
+    clientInstanceId,
+    aggregateType: "workout_session",
+    aggregateId: session.id,
+    sequence: await nextSequence(database, session.id),
+    baseRevision: 0,
+    contractVersion: "workout-session-v1",
+    payload: { kind: "workout_set_removed", sessionId: session.id, setId },
+    createdAt: removedAt,
   });
   await persistSessionAndOperation(database, session, operation, { expectedSession: current });
   return { session, operation };

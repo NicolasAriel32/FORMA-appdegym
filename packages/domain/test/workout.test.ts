@@ -7,6 +7,7 @@ import {
   finishSessionLocally,
   markSessionRecoveryRequired,
   pauseSession,
+  removeSet,
   resumeSession,
   startSession,
   type ExerciseId,
@@ -132,4 +133,14 @@ test("a local conflict can require recovery but confirmed data cannot be downgra
     () => markSessionRecoveryRequired(confirmed),
     /confirmed session cannot enter recovery/,
   );
+});
+
+test("a set can be removed from an in-progress session only by its owner", () => {
+  const exercise = { id: exerciseId, status: "published" as const };
+  const withSet = addSet(startedSession(), owner, exercise, { id: "set-1" as SetId, exerciseId, repetitions: 10, loadKg: 40, createdAt: "2026-11-03T10:02:00.000Z" });
+  assert.throws(() => removeSet(withSet, otherUser, "set-1" as SetId));
+  assert.throws(() => removeSet(withSet, owner, "set-missing" as SetId), /does not exist/);
+  assert.deepEqual(removeSet(withSet, owner, "set-1" as SetId).sets, []);
+  const finished = finishSessionLocally(withSet, owner, "2026-11-03T10:30:00.000Z");
+  assert.throws(() => removeSet(finished, owner, "set-1" as SetId));
 });

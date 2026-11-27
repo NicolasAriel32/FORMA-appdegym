@@ -542,3 +542,4 @@ h1, h2, h3 { text-wrap: balance; }
 .featured-copy { flex: 1; min-width: 0; }
 .muscle-orb.has-photo { flex: none; }
 @media (max-width: 400px) { .muscle-orb.has-photo { width: 112px; height: 112px; margin-right: -4px; } .featured-workout { padding-right: 14px; } }
+.exercise-avatar.exercise-photo { width: 48px; height: 48px; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; object-fit: cover; background: #151724; }

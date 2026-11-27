@@ -56,16 +56,18 @@ test("download-media message saves every exercise video and poster, then reports
   });
 
   const videos = (serviceWorker.match(/repetition-pilot\.mp4"/g) ?? []).length;
+  const photos = (serviceWorker.match(/photo\.webp"/g) ?? []).length;
+  const files = videos * 2 + photos;
   const first = await send("download-media");
   const done = first.at(-1) as { type: string; done: number; total: number; failed: number };
   assert.equal(done.type, "done");
-  assert.equal(done.total, videos * 2);
+  assert.equal(done.total, files);
   assert.equal(done.failed, 1, "un archivo que falla se informa y no corta la descarga");
-  assert.equal(stored.size, videos * 2 - 1);
+  assert.equal(stored.size, files - 1);
 
   const retry = await send("download-media");
-  assert.deepEqual(JSON.parse(JSON.stringify(retry.at(-1))), { type: "done", done: videos * 2, total: videos * 2, failed: 0 });
-  assert.equal(fetched.length, videos * 2 + 1, "el reintento solo baja lo que faltaba");
+  assert.deepEqual(JSON.parse(JSON.stringify(retry.at(-1))), { type: "done", done: files, total: files, failed: 0 });
+  assert.equal(fetched.length, files + 1, "el reintento solo baja lo que faltaba");
 
   const [status] = await send("media-status") as Array<{ savedExercises: number; exercises: number }>;
   assert.equal(status!.savedExercises, videos);

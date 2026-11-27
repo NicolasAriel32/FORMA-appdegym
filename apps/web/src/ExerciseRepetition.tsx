@@ -168,6 +168,14 @@ const media = {
   },
 } as const;
 
+// Foto realista para miniaturas. Remo con barra todavía no tiene foto.
+const withoutPhoto: ReadonlySet<Demonstration> = new Set<Demonstration>(["row"]);
+
+export function exercisePhotoFor(demonstration: Demonstration | undefined): string | undefined {
+  if (demonstration === undefined || withoutPhoto.has(demonstration)) return undefined;
+  return `${media[demonstration].folder}/photo.webp`;
+}
+
 const modes: Array<{ id: ExerciseVisualMode; label: string }> = [
   { id: "movement", label: "Movimiento" },
   { id: "muscles", label: "Músculos" },

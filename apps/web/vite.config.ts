@@ -17,6 +17,7 @@ export default defineConfig({
         const worker = await readFile(new URL("./public/sw.js", import.meta.url), "utf8");
         const media = [...worker.matchAll(/"(\/media\/exercises\/[a-z0-9-]+\/)repetition-pilot\.mp4"/g)]
           .flatMap((match) => [`${match[1]}repetition-pilot.mp4`, `${match[1]}poster.webp`]);
+        media.push(...[...worker.matchAll(/"(\/media\/exercises\/[a-z0-9-]+\/photo\.webp)"/g)].map((match) => match[1]!));
         const mediaSizes = await Promise.all(media.map(async (file) => (await stat(new URL(`./public${file}`, import.meta.url))).size));
         const mediaBytes = mediaSizes.reduce((total, size) => total + size, 0);
         this.emitFile({

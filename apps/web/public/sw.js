@@ -38,9 +38,34 @@ const SHELL = [
 // Subir MEDIA_VERSION solo cuando se reemplaza un video o una portada existente.
 const MEDIA_VERSION = 1;
 const MEDIA_CACHE = `forma-media-v${MEDIA_VERSION}`;
-const EXERCISE_POSTER = /^\/media\/exercises\/[a-z0-9-]+\/poster\.webp$/;
+const EXERCISE_POSTER = /^\/media\/exercises\/[a-z0-9-]+\/(?:poster|photo)\.webp$/;
 const ROUTINE_PHOTO = /^\/media\/routines\/[a-z0-9-]+\.webp$/;
-const EXERCISE_MEDIA = [...EXERCISE_VIDEOS].flatMap((video) => [video, video.replace(/repetition-pilot\.mp4$/, "poster.webp")]);
+// Fotos de las miniaturas de la lista de ejercicios.
+const EXERCISE_PHOTOS = [
+  "/media/exercises/barbell-curl/photo.webp",
+  "/media/exercises/bench-press-barbell/photo.webp",
+  "/media/exercises/deadlift-conventional/photo.webp",
+  "/media/exercises/dumbbell-curl/photo.webp",
+  "/media/exercises/dumbbell-lunge/photo.webp",
+  "/media/exercises/face-pull/photo.webp",
+  "/media/exercises/hammer-curl/photo.webp",
+  "/media/exercises/hip-thrust/photo.webp",
+  "/media/exercises/incline-dumbbell-press/photo.webp",
+  "/media/exercises/lat-pulldown/photo.webp",
+  "/media/exercises/lateral-raise/photo.webp",
+  "/media/exercises/leg-extension/photo.webp",
+  "/media/exercises/leg-press-45/photo.webp",
+  "/media/exercises/lying-leg-curl/photo.webp",
+  "/media/exercises/one-arm-dumbbell-row/photo.webp",
+  "/media/exercises/overhead-press/photo.webp",
+  "/media/exercises/pull-up/photo.webp",
+  "/media/exercises/romanian-deadlift-barbell/photo.webp",
+  "/media/exercises/seated-cable-row/photo.webp",
+  "/media/exercises/skull-crusher/photo.webp",
+  "/media/exercises/squat-back-barbell/photo.webp",
+  "/media/exercises/triceps-pushdown/photo.webp",
+];
+const EXERCISE_MEDIA = [...[...EXERCISE_VIDEOS].flatMap((video) => [video, video.replace(/repetition-pilot\.mp4$/, "poster.webp")]), ...EXERCISE_PHOTOS];
 // Tamaño total de EXERCISE_MEDIA en bytes; lo calcula el build (0 en desarrollo).
 const EXERCISE_MEDIA_BYTES = Number("/* media bytes */") || 0;
 const BUILD_ASSETS = [/* build assets */];

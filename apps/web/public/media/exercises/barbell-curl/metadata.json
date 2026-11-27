@@ -26,5 +26,5 @@
   "reviewedAt": null,
   "reviewer": null,
   "sourceBlend": null,
-  "notes": "Provisorio: con 3 poses la barra se duplica; faltan dos poses intermedias (antebrazos a 45° hacia abajo y a 45° hacia arriba). Transiciones cortas (--flow-scale 3 --transition 5 --hold-mid 6). Requiere revisión profesional."
+  "notes": "Estilo por posiciones con transiciones cortas: en curls el brazo con peso se duplica con morph largo, y más poses no lo resuelven. Requiere revisión profesional."
 }

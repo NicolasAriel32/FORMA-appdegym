@@ -26,5 +26,5 @@
   "reviewedAt": null,
   "reviewer": null,
   "sourceBlend": null,
-  "notes": "Provisorio: las poses 2 y 3 son casi iguales; faltan poses a 45° hacia abajo y a 45° hacia arriba. Transiciones cortas (--flow-scale 3 --transition 6 --hold-mid 3). Requiere revisión profesional."
+  "notes": "Estilo por posiciones con transiciones cortas: en curls el brazo con peso se duplica con morph largo, y más poses no lo resuelven. Requiere revisión profesional."
 }

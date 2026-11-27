@@ -1,0 +1,31 @@
+{
+  "exerciseId": "skull-crusher",
+  "name": "Press francés con barra Z",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [
+    "top",
+    "30",
+    "60",
+    "bottom"
+  ],
+  "targetMuscles": [
+    "Tríceps braquial"
+  ],
+  "secondaryMuscles": [
+    "Ancóneo",
+    "Antebrazos"
+  ],
+  "equipment": [
+    "Banco plano",
+    "Barra Z",
+    "Discos"
+  ],
+  "camera": "three-quarter side",
+  "resolution": "1008 × 672 MP4 y WebP",
+  "durationSeconds": 3.6,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Cuatro imágenes generadas con IA. Estilo por posiciones (--flow-scale 3 --transition 5 --hold-mid 4). Requiere revisión profesional."
+}

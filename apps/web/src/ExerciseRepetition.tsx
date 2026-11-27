@@ -168,11 +168,9 @@ const media = {
   },
 } as const;
 
-// Foto realista para miniaturas. Remo con barra todavía no tiene foto.
-const withoutPhoto: ReadonlySet<Demonstration> = new Set<Demonstration>(["row"]);
-
+// Foto realista para las miniaturas de la lista (photo.webp en la carpeta de cada ejercicio).
 export function exercisePhotoFor(demonstration: Demonstration | undefined): string | undefined {
-  if (demonstration === undefined || withoutPhoto.has(demonstration)) return undefined;
+  if (demonstration === undefined) return undefined;
   return `${media[demonstration].folder}/photo.webp`;
 }
 

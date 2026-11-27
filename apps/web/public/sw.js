@@ -44,6 +44,7 @@ const ROUTINE_PHOTO = /^\/media\/routines\/[a-z0-9-]+\.webp$/;
 const EXERCISE_PHOTOS = [
   "/media/exercises/barbell-curl/photo.webp",
   "/media/exercises/bench-press-barbell/photo.webp",
+  "/media/exercises/bent-over-barbell-row/photo.webp",
   "/media/exercises/deadlift-conventional/photo.webp",
   "/media/exercises/dumbbell-curl/photo.webp",
   "/media/exercises/dumbbell-lunge/photo.webp",

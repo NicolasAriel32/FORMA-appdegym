@@ -348,11 +348,13 @@ html:has(.exercise-details[open]) { overflow: hidden; }
 .exercise-repetition[data-demonstration="incline"] { --muscle-zoom: 1.12; }
 .exercise-repetition[data-demonstration="pushdown"] { --muscle-zoom: 1.08; }
 .exercise-repetition[data-demonstration="lunge"] { --muscle-zoom: 1.1; }
+.exercise-repetition[data-demonstration="legext"] { --muscle-zoom: 1.12; }
 .exercise-mode-controls { margin: 0; }
 .exercise-muscle-glow { position: absolute; left: var(--glow-x, 50%); top: var(--glow-y, 55%); width: var(--glow-size, 27%); aspect-ratio: 1; transform: translate(-50%, -50%); border: 1px solid rgba(255, 157, 128, .65); border-radius: 50%; background: radial-gradient(circle, rgba(255, 123, 104, .52), rgba(252, 105, 124, .2) 48%, transparent 72%); box-shadow: 0 0 28px rgba(255, 112, 120, .24); pointer-events: none; }
 .glow-squat { --glow-x: 52%; --glow-y: 68%; --glow-size: 31%; }
 .glow-bench { --glow-x: 49%; --glow-y: 48%; --glow-size: 32%; }
 .glow-deadlift { --glow-x: 51%; --glow-y: 63%; --glow-size: 33%; }
+.glow-legext { --glow-x: 48%; --glow-y: 60%; --glow-size: 22%; }
 .glow-lunge { --glow-x: 50%; --glow-y: 56%; --glow-size: 26%; }
 .glow-pushdown { --glow-x: 37%; --glow-y: 36%; --glow-size: 22%; }
 .glow-incline { --glow-x: 46%; --glow-y: 34%; --glow-size: 26%; }

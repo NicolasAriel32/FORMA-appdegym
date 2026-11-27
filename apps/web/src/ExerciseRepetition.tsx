@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ReactElement, RefObject } from "react";
 
-export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline" | "pushdown" | "lunge";
+export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline" | "pushdown" | "lunge" | "legext";
 export type ExerciseVisualMode = "movement" | "muscles";
 
 const media = {
@@ -25,6 +25,13 @@ const media = {
     duration: 4.2,
     equipment: "Carga de referencia · 2 discos de 20 kg por lado",
     focus: "Cadena posterior",
+  },
+  legext: {
+    folder: "/media/exercises/leg-extension",
+    label: "Extensión de cuádriceps en máquina, vista lateral de tres cuartos",
+    duration: 4.1,
+    equipment: "Máquina de extensión de piernas",
+    focus: "Cuádriceps",
   },
   lunge: {
     folder: "/media/exercises/dumbbell-lunge",

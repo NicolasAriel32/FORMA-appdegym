@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ReactElement, RefObject } from "react";
 
-export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup";
+export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown";
 export type ExerciseVisualMode = "movement" | "muscles";
 
 const media = {
@@ -25,6 +25,13 @@ const media = {
     duration: 4.2,
     equipment: "Carga de referencia · 2 discos de 20 kg por lado",
     focus: "Cadena posterior",
+  },
+  pulldown: {
+    folder: "/media/exercises/lat-pulldown",
+    label: "Jalón al pecho en polea alta visto de tres cuartos desde atrás",
+    duration: 4.1,
+    equipment: "Polea alta con barra ancha",
+    focus: "Dorsales y bíceps",
   },
   pullup: {
     folder: "/media/exercises/pull-up",

@@ -60,7 +60,7 @@ App de musculación mobile-first: ejercicios con técnica 3D, rutinas, entrenami
 
 ## Pendiente (requiere decisión o más trabajo)
 - **P0 sin cambios:** API sin desplegar, sin registro de cuenta, sesión que no persiste, proyecto Supabase pausado.
-- **Botón "Descargar ejercicios para usar sin conexión"** en Perfil, para quien quiera bajar todos los videos con Wi-Fi.
-- **Dividir el bundle:** cargar Nutrición y la ficha de ejercicio bajo demanda (~114 KB menos al abrir).
+- ~~**Botón "Descargar ejercicios para usar sin conexión"** en Perfil~~ → hecho: baja los 23 videos y portadas (3,4 MB) al caché de media, con progreso, aviso si hay datos móviles y reintento de lo que falte.
+- ~~**Dividir el bundle**~~ → hecho: Supabase (~215 KB) se carga recién al iniciar sesión (se precarga al abrir Perfil) y Nutrición se carga al entrar. JS al abrir: 558 KB → 352 KB; JS sin usar según Lighthouse: 114 KB → 58 KB. Lo que queda es el catálogo (textos de técnica, ~30 KB) y App.tsx.
 - **App.tsx** sigue con ~57 `useState` en un solo componente: separar por pantalla.
 - **Avisar en la ficha** cuando el video es provisorio (los 6 que esperan una imagen).

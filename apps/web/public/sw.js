@@ -39,6 +39,9 @@ const SHELL = [
 const MEDIA_VERSION = 1;
 const MEDIA_CACHE = `forma-media-v${MEDIA_VERSION}`;
 const EXERCISE_POSTER = /^\/media\/exercises\/[a-z0-9-]+\/poster\.webp$/;
+const EXERCISE_MEDIA = [...EXERCISE_VIDEOS].flatMap((video) => [video, video.replace(/repetition-pilot\.mp4$/, "poster.webp")]);
+// Tamaño total de EXERCISE_MEDIA en bytes; lo calcula el build (0 en desarrollo).
+const EXERCISE_MEDIA_BYTES = Number("/* media bytes */") || 0;
 const BUILD_ASSETS = [/* build assets */];
 const OFFLINE_PATHS = new Set([...SHELL, ...BUILD_ASSETS]);
 const PRIVATE_PATHS = new Set(["/me", "/profiles", "/exercises"]);
@@ -137,4 +140,66 @@ async function serveExerciseVideo(request, path) {
       "Content-Type": "video/mp4",
     },
   });
+}
+
+// Botón "Descargar ejercicios": la app pide el estado o la descarga por un MessageChannel.
+self.addEventListener("message", (event) => {
+  const port = event.ports[0];
+  const type = event.data?.type;
+  if (!port) return;
+  if (type === "media-status") {
+    event.waitUntil(mediaStatus().then((status) => port.postMessage({ type: "status", ...status })));
+  } else if (type === "download-media") {
+    event.waitUntil(downloadAllMedia(port));
+  }
+});
+
+async function mediaStatus() {
+  const cache = await caches.open(MEDIA_CACHE);
+  const saved = new Set((await cache.keys()).map((request) => new URL(request.url).pathname));
+  const savedExercises = [...EXERCISE_VIDEOS].filter((video) => saved.has(video) && saved.has(video.replace(/repetition-pilot\.mp4$/, "poster.webp"))).length;
+  return { cached: EXERCISE_MEDIA.filter((path) => saved.has(path)).length, total: EXERCISE_MEDIA.length, exercises: EXERCISE_VIDEOS.size, savedExercises, bytes: EXERCISE_MEDIA_BYTES };
+}
+
+const downloadListeners = new Set();
+let runningDownload = null;
+
+function downloadAllMedia(port) {
+  downloadListeners.add(port);
+  runningDownload ??= runMediaDownload().finally(() => {
+    runningDownload = null;
+    downloadListeners.clear();
+  });
+  return runningDownload;
+}
+
+function notifyDownload(message) {
+  for (const port of downloadListeners) port.postMessage(message);
+}
+
+async function runMediaDownload() {
+  const cache = await caches.open(MEDIA_CACHE);
+  const saved = new Set((await cache.keys()).map((request) => new URL(request.url).pathname));
+  const pending = EXERCISE_MEDIA.filter((path) => !saved.has(path));
+  let done = EXERCISE_MEDIA.length - pending.length;
+  let failed = 0;
+  notifyDownload({ type: "progress", done, total: EXERCISE_MEDIA.length });
+
+  // De a 3 archivos a la vez: rápido sin saturar conexiones lentas.
+  const queue = [...pending];
+  const worker = async () => {
+    for (let path = queue.shift(); path !== undefined; path = queue.shift()) {
+      try {
+        const response = await fetch(path, { cache: "no-cache" });
+        if (!response.ok || response.status !== 200) throw new Error(`HTTP ${response.status}`);
+        await cache.put(path, response);
+        done += 1;
+      } catch {
+        failed += 1;
+      }
+      notifyDownload({ type: "progress", done, total: EXERCISE_MEDIA.length });
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  notifyDownload({ type: "done", done, total: EXERCISE_MEDIA.length, failed });
 }

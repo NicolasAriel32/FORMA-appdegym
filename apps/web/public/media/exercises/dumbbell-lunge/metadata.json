@@ -1,0 +1,31 @@
+{
+  "exerciseId": "dumbbell-lunge",
+  "name": "Zancadas con mancuernas",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [
+    "split-stance",
+    "mid",
+    "bottom"
+  ],
+  "targetMuscles": [
+    "Cuádriceps",
+    "Glúteo mayor"
+  ],
+  "secondaryMuscles": [
+    "Aductores",
+    "Isquiosurales",
+    "Gemelos",
+    "Core"
+  ],
+  "equipment": [
+    "Mancuernas"
+  ],
+  "camera": "side",
+  "resolution": "1008 × 672 MP4 y WebP",
+  "durationSeconds": 4.1,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Loop en posición de zancada estática (sin el paso). La pose de pie original tenía otra cámara; si se regenera de perfil, sumar como primera pose. Requiere revisión profesional."
+}

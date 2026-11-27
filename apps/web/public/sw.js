@@ -1,4 +1,4 @@
-const CACHE_NAME = "forma-shell-v19";
+const CACHE_NAME = "forma-shell-v20";
 const EXERCISE_VIDEOS = new Set([
   "/media/exercises/squat-back-barbell/repetition-pilot.mp4",
   "/media/exercises/bench-press-barbell/repetition-pilot.mp4",
@@ -11,6 +11,7 @@ const EXERCISE_VIDEOS = new Set([
   "/media/exercises/overhead-press/repetition-pilot.mp4",
   "/media/exercises/incline-dumbbell-press/repetition-pilot.mp4",
   "/media/exercises/triceps-pushdown/repetition-pilot.mp4",
+  "/media/exercises/dumbbell-lunge/repetition-pilot.mp4",
 ]);
 const SHELL = [
   "/",
@@ -29,6 +30,7 @@ const SHELL = [
   "/media/exercises/overhead-press/poster.webp",
   "/media/exercises/incline-dumbbell-press/poster.webp",
   "/media/exercises/triceps-pushdown/poster.webp",
+  "/media/exercises/dumbbell-lunge/poster.webp",
   "/media/exercises/squat-start.webp",
   "/media/exercises/squat-descent.webp",
   "/media/exercises/squat-return.webp",

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ReactElement, RefObject } from "react";
 
-export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline" | "pushdown" | "lunge" | "legext" | "legcurl" | "hipthrust" | "dbrow" | "cablerow" | "lateral" | "facepull" | "bbcurl" | "dbcurl";
+export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline" | "pushdown" | "lunge" | "legext" | "legcurl" | "hipthrust" | "dbrow" | "cablerow" | "lateral" | "facepull" | "bbcurl" | "dbcurl" | "hammer";
 export type ExerciseVisualMode = "movement" | "muscles";
 
 const media = {
@@ -25,6 +25,13 @@ const media = {
     duration: 4.2,
     equipment: "Carga de referencia · 2 discos de 20 kg por lado",
     focus: "Cadena posterior",
+  },
+  hammer: {
+    folder: "/media/exercises/hammer-curl",
+    label: "Curl martillo con mancuernas en vista frontal de tres cuartos",
+    duration: 3.4,
+    equipment: "Un par de mancuernas",
+    focus: "Braquial y antebrazo",
   },
   dbcurl: {
     folder: "/media/exercises/dumbbell-curl",

@@ -8,7 +8,7 @@ Este repositorio contiene la base verificable de I1, el inicio de I2, el comando
 
 La interfaz navegable está disponible con dirección visual mobile-first inspirada en Symmetry: fondo oscuro, tarjetas de entrenamiento, navegación inferior y vistas de Inicio, Rutinas, Entrenar, Progreso, Ejercicios y Perfil. Cuando faltan API e identidad mantiene una maqueta claramente marcada; con API configurado, la biblioteca consulta el catálogo publicado, la ficha muestra contenido educativo estructurado y las rutinas se crean/editan online. Una sesión autenticada persiste inicio, series y finalización localmente junto con operaciones pendientes. La pantalla de entrenamiento permite registrar carga y repeticiones, refleja los valores guardados en la tabla, recorre la secuencia de ejercicios de la rutina y activa el descanso sin reemplazar la persistencia offline del dominio. Progreso calcula métricas desde las sesiones locales autenticadas; ante operaciones bloqueadas o en recuperación, la interfaz informa el estado y conserva los datos sin resolverlos automáticamente.
 
-La ficha completa de ejercicio incluye ahora un patrón visual 3D reutilizable para sentadilla (`squat-back-barbell`), con tres fases WebP precargadas por el Service Worker, loop automático de 3,3 segundos, mapa muscular 3D, análisis técnico 3D sin grados universales, metadata del asset, indicador de disponibilidad offline y contenido técnico de ejecución, errores y seguridad. Esta implementación valida la jerarquía, el encuadre responsive y el contrato de assets para escalar a más ejercicios; todavía es un piloto y no reemplaza la fuente `.blend` ni la revisión profesional de cada animación.
+La sentadilla trasera con barra muestra una repetición piloto en tres cuartos en la sesión, junto al registro de carga y repeticiones. Desde «Ver técnica» o la biblioteca se puede pausar por fases, abrir la guía lateral esquemática y consultar los músculos principales. El MP4 interpola tres renders anatómicos del repositorio y queda disponible sin conexión tras la instalación del service worker. Para la demostración definitiva queda pendiente incorporar el rig de Blender y revisar la técnica.
 
 El esquema inicial fue aplicado con RLS. Las instrucciones y variables están en `docs/supabase-development.md` y `.env.example`.
 
@@ -39,6 +39,10 @@ npm run build && npm run start:api
 - La PWA drena el outbox solo cuando dispone de sesión online y API configurado; los recibos incompatibles quedan en recuperación y los errores de transporte no eliminan datos.
 - No implementa consentimiento ni consulta de sesiones por entrenadores.
 - No contiene credenciales ni servicios de aplicación desplegados.
+
+## Estado de cierre
+
+La vista de prueba permite crear planes locales. Las rutinas de cuenta se editan online y se guardan por separado en una copia de lectura en IndexedDB. Las sesiones nuevas conservan una copia local del orden y objetivos de la rutina junto con el inicio y el outbox. La recuperación, la retirada conocida de ejercicios y los límites de la entrega están detallados en [Estado de verificación](docs/testing/verification-status.md).
 
 ## Próximo paso
 

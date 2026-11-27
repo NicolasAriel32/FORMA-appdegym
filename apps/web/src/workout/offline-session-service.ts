@@ -20,6 +20,7 @@ import {
   getSession,
   listOutboxOperations,
   type LocalDatabase,
+  type WorkoutPlanSnapshot,
 } from "../platform/local-db.js";
 
 export type OfflineSessionStartInput = {
@@ -30,6 +31,7 @@ export type OfflineSessionStartInput = {
   clientInstanceId: string;
   createdAt: string;
   startedAt: string;
+  plan?: Omit<WorkoutPlanSnapshot, "sessionId">;
 };
 
 export type OfflineSessionStartResult = {
@@ -45,6 +47,7 @@ export async function startOfflineWorkoutSession({
   clientInstanceId,
   createdAt,
   startedAt,
+  plan,
 }: OfflineSessionStartInput): Promise<OfflineSessionStartResult> {
   const session = startSession(
     createPreparedSession(sessionId, ownerId, createdAt),
@@ -67,7 +70,7 @@ export async function startOfflineWorkoutSession({
     createdAt: startedAt,
   });
 
-  await persistSessionAndOperation(database, session, operation);
+  await persistSessionAndOperation(database, session, operation, { expectedSession: null, ...(plan ? { plan: { ...plan, sessionId } } : {}) });
   return { session, operation };
 }
 
@@ -113,7 +116,7 @@ export async function appendOfflineWorkoutSet({
     payload: { kind: "workout_set_added", sessionId: session.id, set },
     createdAt,
   });
-  await persistSessionAndOperation(database, session, operation);
+  await persistSessionAndOperation(database, session, operation, { expectedSession: current });
   return { session, operation };
 }
 
@@ -148,7 +151,7 @@ export async function finishOfflineWorkoutSession({
     payload: { kind: "workout_session_finished", sessionId: session.id, finishedAt },
     createdAt: finishedAt,
   });
-  await persistSessionAndOperation(database, session, operation);
+  await persistSessionAndOperation(database, session, operation, { expectedSession: current });
   return { session, operation };
 }
 

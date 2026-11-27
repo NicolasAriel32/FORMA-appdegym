@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ReactElement, RefObject } from "react";
 
-export type Demonstration = "squat" | "bench" | "deadlift" | "row";
+export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress";
 export type ExerciseVisualMode = "movement" | "muscles";
 
 const media = {
@@ -25,6 +25,13 @@ const media = {
     duration: 4.2,
     equipment: "Carga de referencia · 2 discos de 20 kg por lado",
     focus: "Cadena posterior",
+  },
+  legpress: {
+    folder: "/media/exercises/leg-press-45",
+    label: "Prensa inclinada a 45 grados en vista de tres cuartos",
+    duration: 4.2,
+    equipment: "Carga de referencia · discos de 20 kg",
+    focus: "Cuádriceps y glúteos",
   },
   row: {
     folder: "/media/exercises/bent-over-barbell-row",

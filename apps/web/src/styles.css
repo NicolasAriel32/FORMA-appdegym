@@ -340,11 +340,13 @@ html:has(.exercise-details[open]) { overflow: hidden; }
 .exercise-repetition[data-demonstration="bench"] { --muscle-zoom: 1.25; }
 .exercise-repetition[data-demonstration="deadlift"] { --muscle-zoom: 1.24; }
 .exercise-repetition[data-demonstration="row"] { --muscle-zoom: 1.26; }
+.exercise-repetition[data-demonstration="legpress"] { --muscle-zoom: 1.22; }
 .exercise-mode-controls { margin: 0; }
 .exercise-muscle-glow { position: absolute; left: var(--glow-x, 50%); top: var(--glow-y, 55%); width: var(--glow-size, 27%); aspect-ratio: 1; transform: translate(-50%, -50%); border: 1px solid rgba(255, 157, 128, .65); border-radius: 50%; background: radial-gradient(circle, rgba(255, 123, 104, .52), rgba(252, 105, 124, .2) 48%, transparent 72%); box-shadow: 0 0 28px rgba(255, 112, 120, .24); pointer-events: none; }
 .glow-squat { --glow-x: 52%; --glow-y: 68%; --glow-size: 31%; }
 .glow-bench { --glow-x: 49%; --glow-y: 48%; --glow-size: 32%; }
 .glow-deadlift { --glow-x: 51%; --glow-y: 63%; --glow-size: 33%; }
+.glow-legpress { --glow-x: 42%; --glow-y: 44%; --glow-size: 30%; }
 .glow-row { --glow-x: 51%; --glow-y: 43%; --glow-size: 31%; }
 .exercise-muscle-badge { position: absolute; left: 8px; bottom: 8px; max-width: calc(100% - 112px); overflow: hidden; padding: 6px 8px; border: 1px solid rgba(255, 168, 151, .35); border-radius: 8px; color: #ffe0d8; background: rgba(35, 20, 29, .86); font-size: .62rem; font-weight: 900; letter-spacing: .07em; text-overflow: ellipsis; white-space: nowrap; }
 .exercise-muscle-details { display: grid; gap: 7px; }

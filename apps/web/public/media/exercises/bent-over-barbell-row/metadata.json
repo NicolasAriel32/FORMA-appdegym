@@ -1,0 +1,27 @@
+{
+  "exerciseId": "bent-over-barbell-row",
+  "name": "Remo con barra",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [],
+  "targetMuscles": [
+    "Dorsal ancho",
+    "Romboides",
+    "Trapecio medio"
+  ],
+  "secondaryMuscles": [
+    "Bíceps",
+    "Deltoides posterior",
+    "Erectores espinales"
+  ],
+  "equipment": [
+    "Barra y discos"
+  ],
+  "camera": "three-quarter",
+  "resolution": "1008 × 568 MP4 y WebP",
+  "durationSeconds": 4.2,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Metadatos agregados después; el video original no documentaba su origen. Requiere revisión profesional."
+}

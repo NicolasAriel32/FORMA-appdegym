@@ -506,6 +506,8 @@ button, a, input, select, textarea, label { touch-action: manipulation; -webkit-
 h1, h2, h3 { text-wrap: balance; }
 /* Textos mínimos legibles en celular */
 .nav-item { font-size: .66rem; }
+/* Contraste AA (5,6:1) para pestañas inactivas */
+.nav-item:not(.is-active) { color: #868ca0; }
 .exercise-rank, .library-exercise-copy small, .filter-chip { font-size: .7rem; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }

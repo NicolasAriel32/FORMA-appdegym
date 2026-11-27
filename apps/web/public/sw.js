@@ -24,47 +24,21 @@ const EXERCISE_VIDEOS = new Set([
   "/media/exercises/hammer-curl/repetition-pilot.mp4",
   "/media/exercises/skull-crusher/repetition-pilot.mp4",
 ]);
+// Solo la app en sí se descarga al instalar. Los videos y portadas de ejercicios
+// se guardan recién cuando el usuario abre ese ejercicio (ahorra ~5 MB de datos
+// móviles en la primera visita) y viven en un caché propio que no se borra
+// cuando se actualiza la app.
 const SHELL = [
   "/",
   "/manifest.webmanifest",
   "/forma-icon-180.png",
   "/forma-icon-192.png",
   "/forma-icon-512.png",
-  ...EXERCISE_VIDEOS,
-  "/media/exercises/bench-press-barbell/poster.webp",
-  "/media/exercises/romanian-deadlift-barbell/poster.webp",
-  "/media/exercises/bent-over-barbell-row/poster.webp",
-  "/media/exercises/leg-press-45/poster.webp",
-  "/media/exercises/deadlift-conventional/poster.webp",
-  "/media/exercises/pull-up/poster.webp",
-  "/media/exercises/lat-pulldown/poster.webp",
-  "/media/exercises/overhead-press/poster.webp",
-  "/media/exercises/incline-dumbbell-press/poster.webp",
-  "/media/exercises/triceps-pushdown/poster.webp",
-  "/media/exercises/dumbbell-lunge/poster.webp",
-  "/media/exercises/leg-extension/poster.webp",
-  "/media/exercises/lying-leg-curl/poster.webp",
-  "/media/exercises/hip-thrust/poster.webp",
-  "/media/exercises/one-arm-dumbbell-row/poster.webp",
-  "/media/exercises/seated-cable-row/poster.webp",
-  "/media/exercises/lateral-raise/poster.webp",
-  "/media/exercises/face-pull/poster.webp",
-  "/media/exercises/barbell-curl/poster.webp",
-  "/media/exercises/dumbbell-curl/poster.webp",
-  "/media/exercises/hammer-curl/poster.webp",
-  "/media/exercises/skull-crusher/poster.webp",
-  "/media/exercises/squat-start.webp",
-  "/media/exercises/squat-descent.webp",
-  "/media/exercises/squat-return.webp",
-  "/media/exercises/squat-muscles.webp",
-  "/media/exercises/squat-back-barbell/animation-start.webp",
-  "/media/exercises/squat-back-barbell/animation-descent.webp",
-  "/media/exercises/squat-back-barbell/animation-return.webp",
-  "/media/exercises/squat-back-barbell/muscles.webp",
-  "/media/exercises/squat-back-barbell/angles.webp",
-  "/media/exercises/squat-back-barbell/poster.webp",
-  "/media/exercises/squat-back-barbell/metadata.json",
 ];
+// Subir MEDIA_VERSION solo cuando se reemplaza un video o una portada existente.
+const MEDIA_VERSION = 1;
+const MEDIA_CACHE = `forma-media-v${MEDIA_VERSION}`;
+const EXERCISE_POSTER = /^\/media\/exercises\/[a-z0-9-]+\/poster\.webp$/;
 const BUILD_ASSETS = [/* build assets */];
 const OFFLINE_PATHS = new Set([...SHELL, ...BUILD_ASSETS]);
 const PRIVATE_PATHS = new Set(["/me", "/profiles", "/exercises"]);
@@ -79,7 +53,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key.startsWith("forma-shell-") && key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.filter((key) => (key.startsWith("forma-shell-") && key !== CACHE_NAME) || (key.startsWith("forma-media-") && key !== MEDIA_CACHE)).map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   );
 });
@@ -103,6 +77,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (EXERCISE_POSTER.test(url.pathname)) {
+    event.respondWith(cacheMediaOnFirstUse(event.request, url.pathname));
+    return;
+  }
+
   if (OFFLINE_PATHS.has(url.pathname)) {
     event.respondWith(matchShell(url.pathname).then((cached) => cached ?? fetch(event.request)));
   }
@@ -112,9 +91,30 @@ async function matchShell(path) {
   return (await caches.open(CACHE_NAME)).match(path);
 }
 
+async function cacheMediaOnFirstUse(request, path) {
+  const cache = await caches.open(MEDIA_CACHE);
+  const cached = await cache.match(path);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response.ok && response.status === 200) await cache.put(path, response.clone());
+  return response;
+}
+
 async function serveExerciseVideo(request, path) {
-  const cached = await matchShell(path);
-  if (!cached) return fetch(request);
+  const cache = await caches.open(MEDIA_CACHE);
+  let cached = await cache.match(path);
+  if (!cached) {
+    // Primera vez: se baja el video completo una sola vez y se guarda para usarlo sin conexión.
+    let full;
+    try {
+      full = await fetch(path);
+    } catch {
+      return fetch(request);
+    }
+    if (!full.ok || full.status !== 200) return full;
+    await cache.put(path, full.clone());
+    cached = full;
+  }
 
   const range = request.headers.get("range");
   if (!range) return cached;

@@ -72,3 +72,31 @@ export const demoExercises: ExerciseCard[] = [
   { id: "demo-row", name: "Remo con barra", muscle: "Espalda · Bíceps", rank: "Principiante", color: "green", education: { movementPattern: "Tracción horizontal", targetMuscles: ["Dorsal ancho", "Romboides", "Trapecio medio"], secondaryMuscles: ["Bíceps", "Deltoides posterior", "Erectores espinales"], instructions: "Desde una bisagra de cadera, mantené la columna neutra y la barra cerca de las piernas. Tirala hacia el abdomen llevando los codos atrás, sin encoger los hombros. Bajá con control y repetí conservando el ángulo del tronco.", commonMistakes: ["Redondear la espalda para ganar recorrido", "Convertir el movimiento en un tirón de bíceps", "Usar impulso excesivo", "Elevar los hombros hacia las orejas"], safetyNotes: ["Aprendé la bisagra con una carga liviana antes de progresar", "No persigas amplitud si perdés la posición lumbar", "Detené la serie ante dolor agudo o irradiado"], equipment: "Barra y discos", difficulty: "Principiante" } },
   { id: "demo-rdl", name: "Peso muerto rumano", muscle: "Isquios · Glúteos", rank: "Intermedio", color: "orange", education: { movementPattern: "Bisagra de cadera", targetMuscles: ["Isquiosurales", "Glúteo mayor"], secondaryMuscles: ["Erectores espinales", "Aductores", "Antebrazos"], instructions: "Partí de pie con la carga cerca del cuerpo. Flexioná levemente las rodillas y llevá la cadera atrás mientras la barra desciende rozando los muslos. Bajá hasta sentir tensión controlable en los isquiosurales, luego acercá la cadera a la barra y extendé sin hiperextender la espalda.", commonMistakes: ["Convertirlo en una sentadilla", "Alejar la carga del cuerpo", "Buscar profundidad redondeando la espalda", "Bloquear las rodillas o hiperextender al finalizar"], safetyNotes: ["La profundidad depende de movilidad y control, no de tocar el suelo", "Progresá con incrementos pequeños y técnica repetible", "Consultá a un profesional si tenés lesión o dolor persistente"], equipment: "Barra y discos", difficulty: "Intermedio" } },
 ];
+
+export const muscleGroups = ["Piernas", "Pecho", "Espalda", "Hombros", "Brazos"] as const;
+export type MuscleGroup = (typeof muscleGroups)[number];
+
+const groupByDemonstration: Record<Demonstration, MuscleGroup> = {
+  squat: "Piernas", legpress: "Piernas", deadlift: "Piernas", conventional: "Piernas", lunge: "Piernas",
+  legext: "Piernas", legcurl: "Piernas", hipthrust: "Piernas",
+  bench: "Pecho", incline: "Pecho",
+  row: "Espalda", pullup: "Espalda", pulldown: "Espalda", dbrow: "Espalda", cablerow: "Espalda",
+  ohp: "Hombros", lateral: "Hombros", facepull: "Hombros",
+  pushdown: "Brazos", bbcurl: "Brazos", dbcurl: "Brazos", hammer: "Brazos", skull: "Brazos",
+};
+
+const groupWords: ReadonlyArray<[MuscleGroup, RegExp]> = [
+  ["Piernas", /cu[aá]driceps|gl[uú]te|isquio|femoral|gemel|pierna|aductor/],
+  ["Pecho", /pector|pecho/],
+  ["Espalda", /dorsal|espalda|romboide|trapecio|lumbar/],
+  ["Hombros", /hombro|deltoide/],
+  ["Brazos", /b[ií]ceps|tr[ií]ceps|braquial|antebrazo/],
+];
+
+/** Grupo muscular principal: por la animación conocida o, si no hay, por las palabras de los músculos. */
+export function muscleGroupFor(exercise: Pick<ExerciseCard, "id" | "name"> & { muscle?: string }): MuscleGroup | undefined {
+  const key = demonstrationFor(exercise);
+  if (key !== undefined) return groupByDemonstration[key];
+  const text = (exercise.muscle ?? "").toLocaleLowerCase("es");
+  return groupWords.find(([, pattern]) => pattern.test(text))?.[0];
+}

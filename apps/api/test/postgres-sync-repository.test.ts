@@ -35,6 +35,10 @@ function makeClient() {
         return { rows: [] as Row[] };
       }
       if (text.includes("from public.exercises")) return { rows: [{ id: exerciseId }] as unknown as Row[] };
+      if (text.startsWith("delete from public.workout_sets")) {
+        const existed = sets.delete(String(values[0]));
+        return { rows: existed ? [{ id: values[0] }] as unknown as Row[] : [] as Row[] };
+      }
       if (text.includes("from public.workout_sets where id")) {
         const row = sets.get(String(values[0]));
         return { rows: row === undefined ? [] as Row[] : [row as Row] };
@@ -71,7 +75,7 @@ function makeClient() {
     },
     transaction: async <T>(callback: (transaction: TransactionalSqlClient) => Promise<T>) => callback(client),
   };
-  return { client, operations, sessions, changes, queries };
+  return { client, operations, sessions, sets, changes, queries };
 }
 
 function startOperation(operationId = startOperationId) {
@@ -123,4 +127,21 @@ test("postgres sync repository keeps page cursor at the last returned change", a
   const page = await repository.listChanges(ownerId, null, 2);
   assert.equal(page.nextCursor, "2");
   assert.equal(page.changes.length, 2);
+});
+
+test("postgres sync repository removes a set and rejects removing it twice", async () => {
+  const { client, sets, changes } = makeClient();
+  const repository = new PostgresSyncRepository(client, (() => { let n = 0; return () => `id-${++n}`; })(), () => "2026-11-03T00:02:00.000Z");
+  const setId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+  const base = { clientInstanceId: "device-1", aggregateType: "workout_session", aggregateId: sessionId, baseRevision: 0, contractVersion: "workout-session-v1", createdAt: "2026-11-03T00:03:00.000Z" };
+  await repository.processOperation(ownerId, startOperation());
+  const added = await repository.processOperation(ownerId, { ...base, operationId: "11111111-1111-4111-8111-111111111111", sequence: 1, payload: { kind: "workout_set_added", sessionId, set: { id: setId, exerciseId, repetitions: 10, loadKg: 40, createdAt: "2026-11-03T00:03:00.000Z" } } });
+  assert.equal(added.status, "applied");
+  assert.equal(sets.size, 1);
+  const removed = await repository.processOperation(ownerId, { ...base, operationId: "22222222-2222-4222-8222-222222222222", sequence: 2, payload: { kind: "workout_set_removed", sessionId, setId } });
+  assert.equal(removed.status, "applied");
+  assert.equal(sets.size, 0);
+  assert.deepEqual(changes.at(-1)?.payload, { kind: "workout_set_removed", sessionId, setId });
+  const again = await repository.processOperation(ownerId, { ...base, operationId: "33333333-3333-4333-8333-333333333333", sequence: 3, payload: { kind: "workout_set_removed", sessionId, setId } });
+  assert.equal(again.status, "conflict");
 });

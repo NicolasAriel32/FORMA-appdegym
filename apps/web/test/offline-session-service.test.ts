@@ -9,7 +9,7 @@ import {
   listOutboxOperations,
   openLocalDatabase,
 } from "../src/platform/local-db.js";
-import { appendOfflineWorkoutSet, finishOfflineWorkoutSession, startOfflineWorkoutSession } from "../src/workout/offline-session-service.js";
+import { appendOfflineWorkoutSet, finishOfflineWorkoutSession, removeOfflineWorkoutSet, startOfflineWorkoutSession } from "../src/workout/offline-session-service.js";
 import type { ExerciseId, SessionId, SetId, UserId } from "../../../packages/domain/src/workout.js";
 
 test("starting a workout offline persists the session and outbox together", async () => {
@@ -99,6 +99,25 @@ test("concurrent set commands cannot overwrite a committed set", async () => {
     await startOfflineWorkoutSession(start);
     assert.equal((await getSession(database, sessionId))?.sets.length, 1);
     assert.deepEqual((await listOutboxOperations(database)).map((operation) => operation.sequence).sort(), [0, 1]);
+  } finally {
+    database.close();
+  }
+});
+
+test("removing a set offline deletes it locally and queues the removal in order", async () => {
+  const database = await openLocalDatabase(indexedDB, `forma-test-${randomUUID()}`);
+  try {
+    const ownerId = "user-1" as UserId;
+    const sessionId = "session-1" as SessionId;
+    const exerciseId = "exercise-1" as ExerciseId;
+    await startOfflineWorkoutSession({ database, ownerId, sessionId, operationId: "operation-1", clientInstanceId: "client-1", createdAt: "2026-11-03T10:00:00.000Z", startedAt: "2026-11-03T10:01:00.000Z" });
+    await appendOfflineWorkoutSet({ database, ownerId, sessionId, operationId: "operation-2", clientInstanceId: "client-1", setId: "set-1" as SetId, exercise: { id: exerciseId, status: "published" }, exerciseId, repetitions: 8, loadKg: 80, createdAt: "2026-11-03T10:02:00.000Z" });
+    const removed = await removeOfflineWorkoutSet({ database, ownerId, sessionId, operationId: "operation-3", clientInstanceId: "client-1", setId: "set-1" as SetId, removedAt: "2026-11-03T10:03:00.000Z" });
+    assert.equal(removed.session.sets.length, 0);
+    assert.deepEqual(removed.operation.payload, { kind: "workout_set_removed", sessionId, setId: "set-1" });
+    assert.deepEqual((await listOutboxOperations(database)).map((operation) => operation.sequence), [0, 1, 2]);
+    assert.equal((await getSession(database, "session-1"))?.sets.length, 0);
+    await assert.rejects(() => removeOfflineWorkoutSet({ database, ownerId, sessionId, operationId: "operation-4", clientInstanceId: "client-1", setId: "set-1" as SetId, removedAt: "2026-11-03T10:04:00.000Z" }));
   } finally {
     database.close();
   }

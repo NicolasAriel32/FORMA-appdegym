@@ -114,6 +114,19 @@ export function addSet(
   return { ...session, sets: [...session.sets, { ...set }] };
 }
 
+export function removeSet(
+  session: WorkoutSession,
+  actorId: UserId,
+  setId: SetId,
+): WorkoutSession {
+  assertOwner(session, actorId);
+  assertStatus(session, "in_progress");
+  if (!session.sets.some((set) => set.id === setId)) {
+    throw new WorkoutDomainError("set id does not exist in session");
+  }
+  return { ...session, sets: session.sets.filter((set) => set.id !== setId) };
+}
+
 export function finishSessionLocally(
   session: WorkoutSession,
   actorId: UserId,

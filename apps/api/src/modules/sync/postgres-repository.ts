@@ -148,6 +148,7 @@ export class PostgresSyncRepository implements SyncRepository {
     const kind = readString(operation.payload.kind);
     if (kind === "workout_session_started") return this.applyStart(client, ownerId, operation);
     if (kind === "workout_set_added") return this.applySet(client, ownerId, operation);
+    if (kind === "workout_set_removed") return this.applySetRemoval(client, ownerId, operation);
     if (kind === "workout_session_finished") return this.applyFinish(client, ownerId, operation);
     return { status: "unsupported" };
   }
@@ -206,6 +207,29 @@ export class PostgresSyncRepository implements SyncRepository {
       [operation.aggregateId, ownerId],
     );
     return { status: "applied", change: { revision: revision + 1, payload: { kind, sessionId: operation.aggregateId, set: { id: setId, exerciseId, repetitions, loadKg, createdAt } } } };
+  }
+
+  private async applySetRemoval(client: SqlClient, ownerId: string, operation: SyncOperationInput): Promise<OperationDecision> {
+    const kind = "workout_set_removed";
+    const sessionId = readString(operation.payload.sessionId);
+    const setId = readString(operation.payload.setId);
+    if (sessionId !== operation.aggregateId || setId === undefined || !isUuid(setId)) return { status: "conflict" };
+    const session = await this.getSessionForOwner(client, ownerId, operation.aggregateId);
+    if (session === undefined) return { status: operation.sequence > 0 ? "retryable" : "conflict" };
+    const revision = safeRevision(session.server_revision);
+    if (revision === undefined || operation.sequence < revision) return { status: "conflict" };
+    if (operation.sequence > revision) return { status: "retryable" };
+    if (session.status !== "in_progress") return { status: "conflict" };
+    const removed = await client.query<{ id: string }>(
+      `delete from public.workout_sets where id = $1 and session_id = $2 returning id`,
+      [setId, operation.aggregateId],
+    );
+    if (removed.rows[0] === undefined) return { status: "conflict" };
+    await client.query(
+      `update public.workout_sessions set server_revision = server_revision + 1 where id = $1 and owner_id = $2`,
+      [operation.aggregateId, ownerId],
+    );
+    return { status: "applied", change: { revision: revision + 1, payload: { kind, sessionId: operation.aggregateId, setId } } };
   }
 
   private async applyFinish(client: SqlClient, ownerId: string, operation: SyncOperationInput): Promise<OperationDecision> {

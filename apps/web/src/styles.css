@@ -543,3 +543,34 @@ h1, h2, h3 { text-wrap: balance; }
 .muscle-orb.has-photo { flex: none; }
 @media (max-width: 400px) { .muscle-orb.has-photo { width: 112px; height: 112px; margin-right: -4px; } .featured-workout { padding-right: 14px; } }
 .exercise-avatar.exercise-photo { width: 48px; height: 48px; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; object-fit: cover; background: #151724; }
+.empty-workout-card.has-photo { overflow: hidden; padding-top: 0; }
+.empty-workout-photo { position: relative; width: calc(100% + 48px); margin: 0 -24px; aspect-ratio: 4 / 3; max-height: 300px; }
+.empty-workout-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 82% 30%; }
+.empty-workout-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, #1a1a28 0%, rgba(26,26,40,0) 45%); }
+.empty-workout-card.has-photo .eyebrow { margin-top: 4px; }
+
+/* Cuenta, ranking en Progreso y acceso desde Inicio */
+.auth-mode { margin-bottom: 4px; }
+.auth-mode button { min-height: 40px; }
+.field-hint { color: #8d92a5; font-size: .66rem; font-weight: 600; }
+.auth-success { margin: 0; color: #74d4b1; font-size: .78rem; font-weight: 700; line-height: 1.5; }
+.drawer-auth-form .rk-sex-pick label { display: flex; color: #d4d6e0; font-size: .8rem; }
+.profile-ranking { display: grid; gap: 10px; padding: 14px; border: 1px solid rgba(200, 239, 114, .25); border-radius: 14px; background: rgba(200, 239, 114, .06); }
+.profile-ranking p { margin: 0; color: #d7dbc8; font-size: .78rem; line-height: 1.5; }
+.progress-switch { margin-bottom: 18px; }
+.progress-switch button { min-height: 42px; font-size: .78rem; }
+.ranking-teaser { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px; border: 1px solid rgba(200, 239, 114, .28); border-radius: 20px; color: #f1f0f8; background: linear-gradient(135deg, rgba(200, 239, 114, .12), rgba(255,255,255,.02)); text-align: left; cursor: pointer; }
+.ranking-teaser-photos { display: grid; flex: none; grid-template-columns: repeat(2, 30px); gap: 3px; }
+.ranking-teaser-photos img { width: 30px; height: 30px; border-radius: 8px; object-fit: cover; }
+.ranking-teaser-copy { display: grid; flex: 1; gap: 4px; }
+.ranking-teaser-copy strong { font-size: .92rem; }
+.ranking-teaser-copy small { color: #a9aec0; font-size: .72rem; line-height: 1.4; }
+.ranking-teaser > .icon { color: #c8ef72; }
+
+/* Selector Hombres/Mujeres (registro y ranking) */
+.rk-sex-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; padding: 0; border: 0; }
+.rk-sex-pick legend { margin-bottom: 6px; padding: 0; color: #c3bbf2; font-size: .74rem; font-weight: 800; }
+.rk-sex-pick label { display: flex; flex-direction: row; align-items: center; justify-content: center; min-height: 46px; border: 1px solid rgba(255,255,255,.14); border-radius: 12px; color: #d4d6e0; font-size: .82rem; cursor: pointer; }
+.rk-sex-pick label.is-on { border-color: transparent; color: #17152e; background: #d7d0ff; }
+.rk-sex-pick input { position: absolute; opacity: 0; pointer-events: none; }
+.rk-sex-pick label:focus-within { outline: 2px solid #d7d0ff; outline-offset: 2px; }

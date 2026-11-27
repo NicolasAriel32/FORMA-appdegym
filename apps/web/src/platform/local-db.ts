@@ -468,6 +468,13 @@ function applySyncChange(
     if (session.status === "finished_confirmed" || session.status === "discarded_confirmed" || session.status === "recovery_required") throw new LocalPersistenceError("cannot append a set to the local session state");
     return { ...session, sets: [...session.sets, set] };
   }
+  if (kind === "workout_set_removed") {
+    const setId = readString(payload.setId);
+    if (readString(payload.sessionId) !== change.aggregateId || setId === undefined) throw new LocalPersistenceError("invalid workout set removal");
+    if (!session.sets.some((candidate) => candidate.id === setId)) return session;
+    if (session.status === "finished_confirmed" || session.status === "discarded_confirmed" || session.status === "recovery_required") throw new LocalPersistenceError("cannot remove a set from the local session state");
+    return { ...session, sets: session.sets.filter((candidate) => candidate.id !== setId) };
+  }
   if (kind === "workout_session_finished") {
     const finishedAt = readString(payload.finishedAt);
     if (readString(payload.sessionId) !== change.aggregateId || finishedAt === undefined) throw new LocalPersistenceError("invalid workout session finish change");

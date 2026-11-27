@@ -5,6 +5,7 @@ import {
   loadCurrentSession,
   signInWithPassword,
   signOut,
+  signUpWithPassword,
   subscribeToAuthChanges,
   type AuthGateway,
 } from "../src/platform/auth.js";
@@ -33,6 +34,7 @@ function gateway(overrides: Partial<AuthGateway["auth"]> = {}): AuthGateway {
     auth: {
       getSession: async () => ({ data: { session: null }, error: null }),
       signInWithPassword: async () => ({ data: { session: session() }, error: null }),
+      signUp: async () => ({ data: { session: session() }, error: null }),
       signOut: async () => ({ error: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
       ...overrides,
@@ -96,4 +98,17 @@ test("session loading, state subscription cleanup, and sign out are explicit", a
 
   assert.equal(receivedSession, current);
   assert.equal(unsubscribed, true);
+});
+
+test("sign up sends name and sex as profile data and validates input", async () => {
+  let received: unknown;
+  const auth = gateway({
+    signUp: async (credentials) => { received = credentials; return { data: { session: null }, error: null }; },
+  });
+  assert.equal(await signUpWithPassword(auth, " nuevo@example.test ", "password123", { displayName: " Nico ", sex: "M" }, "https://forma.test/"), null);
+  assert.deepEqual(received, { email: "nuevo@example.test", password: "password123", options: { data: { display_name: "Nico", sex: "M" }, emailRedirectTo: "https://forma.test/" } });
+  await assert.rejects(() => signUpWithPassword(auth, "a@b.c", "corta", { displayName: "Nico", sex: "M" }), { code: "invalid_input" });
+  await assert.rejects(() => signUpWithPassword(auth, "a@b.c", "password123", { displayName: "  ", sex: "F" }), { code: "invalid_input" });
+  const taken = gateway({ signUp: async () => ({ data: { session: null }, error: { message: "User already registered" } }) });
+  await assert.rejects(() => signUpWithPassword(taken, "a@b.c", "password123", { displayName: "Nico", sex: "M" }), /ya tiene cuenta/);
 });

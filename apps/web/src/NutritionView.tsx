@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
 import type { FormEvent, ReactElement } from "react";
 import "./nutrition.css";
+import { FoodEntryEditor, type EntryItem, type FoodEntryDraft } from "./nutrition/FoodEntryEditor.js";
+import { caloriesFor } from "./nutrition/food-database.js";
+import { Icon } from "./Icon.js";
 import { BodyProfileError, estimateMacroTargets, type ActivityLevel, type BodyGoal, type BodyProfile, type BiologicalSex } from "../../../packages/domain/src/nutrition-targets.js";
 
 type Goals = { calories: number; protein: number; carbs: number; fats: number };
-type FoodEntry = { id: string; name: string; meal: string; protein: number; carbs: number; fats: number; date: string };
+type FoodEntry = { id: string; name: string; meal: string; protein: number; carbs: number; fats: number; date: string; items?: EntryItem[] };
 type NutritionData = { goals: Goals; entries: FoodEntry[]; goalsConfigured: boolean; profile?: BodyProfile };
 
 const defaultGoals: Goals = { calories: 2230, protein: 160, carbs: 240, fats: 70 };
@@ -39,7 +42,13 @@ function readNutritionData(key: string): NutritionData {
             typeof entry === "object" && entry !== null && typeof entry.id === "string" &&
             typeof entry.name === "string" && typeof entry.meal === "string" &&
             typeof entry.date === "string" && Number.isFinite(entry.protein) &&
-            Number.isFinite(entry.carbs) && Number.isFinite(entry.fats));
+            Number.isFinite(entry.carbs) && Number.isFinite(entry.fats))
+            .map((entry) => {
+              if (entry.items === undefined) return entry;
+              const items = Array.isArray(entry.items) ? entry.items.filter(isEntryItem) : [];
+              const { items: _ignored, ...rest } = entry;
+              return items.length > 0 ? { ...rest, items } : rest;
+            });
           const result: NutritionData = { goals: goals as Goals, entries, goalsConfigured: value.goalsConfigured === true };
           if (isBodyProfile(value.profile)) result.profile = value.profile;
           return result;
@@ -48,6 +57,13 @@ function readNutritionData(key: string): NutritionData {
     }
   } catch { /* Storage can be unavailable or contain an old version. */ }
   return { goals: defaultGoals, entries: [], goalsConfigured: false };
+}
+
+function isEntryItem(value: unknown): value is EntryItem {
+  if (typeof value !== "object" || value === null) return false;
+  const item = value as EntryItem;
+  return typeof item.foodId === "string" && typeof item.name === "string" &&
+    [item.grams, item.protein, item.carbs, item.fats].every((number) => typeof number === "number" && Number.isFinite(number) && number >= 0);
 }
 
 function isBodyProfile(value: unknown): value is BodyProfile {
@@ -65,6 +81,8 @@ export function NutritionView({ ownerId, onBack }: { ownerId: string | null; onB
   const storageKey = "forma.nutrition.v1." + (ownerId ?? "demo");
   const [data, setData] = useState<NutritionData>(() => readNutritionData(storageKey));
   const [editor, setEditor] = useState<"food" | "goals" | "calculator" | null>(null);
+  const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
+  const [newMeal, setNewMeal] = useState(meals[0]!);
   const [message, setMessage] = useState<string | null>(null);
   const day = todayKey();
   const todaysEntries = useMemo(() => data.entries.filter((entry) => entry.date === day), [data.entries, day]);
@@ -88,22 +106,34 @@ export function NutritionView({ ownerId, onBack }: { ownerId: string | null; onB
     }
   }
 
-  function saveFood(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const name = String(form.get("name") ?? "").trim();
-    if (!name) return;
-    const entry: FoodEntry = {
-      id: crypto.randomUUID(),
-      name,
-      meal: String(form.get("meal") ?? meals[0]),
-      protein: numberFrom(form, "protein"),
-      carbs: numberFrom(form, "carbs"),
-      fats: numberFrom(form, "fats"),
-      date: day,
-    };
-    save({ ...data, entries: [entry, ...data.entries].slice(0, 500) });
-    if (localStorage.getItem(storageKey) !== null) setEditor(null);
+  function openFood(entry: FoodEntry | null, meal?: string): void {
+    setMessage(null);
+    setEditingEntry(entry);
+    if (meal) setNewMeal(meal);
+    setEditor("food");
+  }
+
+  function closeEditor(): void {
+    setEditor(null);
+    setEditingEntry(null);
+  }
+
+  function saveFood(draft: FoodEntryDraft): void {
+    const base = { name: draft.name, meal: draft.meal, protein: draft.protein, carbs: draft.carbs, fats: draft.fats };
+    const entry: FoodEntry = editingEntry
+      ? { id: editingEntry.id, date: editingEntry.date, ...base, ...(draft.items?.length ? { items: draft.items } : {}) }
+      : { id: crypto.randomUUID(), date: day, ...base, ...(draft.items?.length ? { items: draft.items } : {}) };
+    const entries = editingEntry
+      ? data.entries.map((candidate) => candidate.id === entry.id ? entry : candidate)
+      : [entry, ...data.entries].slice(0, 500);
+    save({ ...data, entries });
+    if (localStorage.getItem(storageKey) !== null) closeEditor();
+  }
+
+  function deleteFood(): void {
+    if (editingEntry === null) return;
+    save({ ...data, entries: data.entries.filter((candidate) => candidate.id !== editingEntry.id) });
+    closeEditor();
   }
 
   function saveGoals(event: FormEvent<HTMLFormElement>): void {
@@ -166,22 +196,22 @@ export function NutritionView({ ownerId, onBack }: { ownerId: string | null; onB
     </section>
 
     <section className="nutrition-food-section">
-      <div className="section-heading"><div><p className="eyebrow">REGISTRO DIARIO</p><h2>Comidas y alimentos</h2></div><button className="nutrition-add" type="button" onClick={() => setEditor("food")}><span>＋</span> Agregar</button></div>
+      <div className="section-heading"><div><p className="eyebrow">REGISTRO DIARIO</p><h2>Comidas y alimentos</h2></div><button className="nutrition-add" type="button" onClick={() => openFood(null)}><span>＋</span> Agregar</button></div>
       {message && editor === null ? <p className="form-error" role="alert">{message}</p> : null}
       <div className="nutrition-meal-list">{grouped.map(({ meal, entries }) => <section className="nutrition-meal" key={meal}>
-        <div className="nutrition-meal-heading"><h3>{meal}</h3><span>{entries.length === 0 ? "Sin registros" : entries.length + (entries.length === 1 ? " alimento" : " alimentos")}</span></div>
-        {entries.map((entry) => <article className="nutrition-food-entry" key={entry.id}>
-          <div><strong>{entry.name}</strong><small>P {entry.protein} g · C {entry.carbs} g · G {entry.fats} g</small></div>
-          <span>{Math.round(entry.protein * 4 + entry.carbs * 4 + entry.fats * 9)} kcal</span>
-        </article>)}
+        <div className="nutrition-meal-heading"><h3>{meal}</h3><span>{entries.length === 0 ? "Sin registros" : `${caloriesFor(sumEntries(entries))} kcal`}</span><button type="button" className="nutrition-meal-add" onClick={() => openFood(null, meal)} aria-label={`Agregar a ${meal.toLocaleLowerCase("es")}`}><Icon name="plus" size={17} /></button></div>
+        {entries.map((entry) => <button type="button" className="nutrition-food-entry" key={entry.id} onClick={() => openFood(entry)} aria-label={`Editar ${entry.name}`}>
+          <div><strong>{entry.name}</strong>{entry.items?.length ? <small className="nutrition-entry-items">{entry.items.map((item) => `${item.name.replace(/ \(.*\)$/, "")} ${Math.round(item.grams)} g`).join(" · ")}</small> : null}<small>P {fmt(entry.protein)} g · C {fmt(entry.carbs)} g · G {fmt(entry.fats)} g</small></div>
+          <span>{caloriesFor(entry)} kcal</span>
+        </button>)}
       </section>)}</div>
     </section>
 
-    <p className="nutrition-footnote">Los datos se guardan en este navegador. Las calorías son una estimación calculada con 4 kcal/g para proteína y carbohidratos, y 9 kcal/g para grasas.</p>
+    <p className="nutrition-footnote">Tocá una comida para editarla o eliminarla. Los datos se guardan en este teléfono. Las calorías se estiman con 4 kcal/g para proteína y carbohidratos, y 9 kcal/g para grasas.</p>
 
-    {editor !== null ? <div className="nutrition-modal-layer" role="presentation" onClick={() => setEditor(null)}>
+    {editor !== null ? <div className="nutrition-modal-layer" role="presentation" onClick={closeEditor}>
       <section className="nutrition-editor" role="dialog" aria-modal="true" aria-labelledby="nutrition-editor-title" onClick={(event) => event.stopPropagation()}>
-        <div className="drawer-header"><div><p className="eyebrow">{editor === "food" ? "REGISTRO DEL DÍA" : editor === "calculator" ? "ESTIMACIÓN PERSONAL" : "CONFIGURACIÓN PERSONAL"}</p><h2 id="nutrition-editor-title">{editor === "food" ? "Agregar alimento" : editor === "calculator" ? "Calcular tus metas" : "Tus metas diarias"}</h2></div><button className="close-button" type="button" onClick={() => setEditor(null)} aria-label="Cerrar">×</button></div>
+        <div className="drawer-header"><div><p className="eyebrow">{editor === "food" ? "REGISTRO DEL DÍA" : editor === "calculator" ? "ESTIMACIÓN PERSONAL" : "CONFIGURACIÓN PERSONAL"}</p><h2 id="nutrition-editor-title">{editor === "food" ? (editingEntry ? "Editar comida" : "Agregar comida") : editor === "calculator" ? "Calcular tus metas" : "Tus metas diarias"}</h2></div><button className="close-button" type="button" onClick={closeEditor} aria-label="Cerrar">×</button></div>
         {message ? <p className="form-error" role="alert">{message}</p> : null}
         {editor === "calculator" ? <form className="nutrition-form" onSubmit={saveCalculatedGoals} noValidate>
           <p className="nutrition-form-hint">Usamos la fórmula Mifflin-St Jeor para estimar tu gasto diario y repartir proteína, grasas y carbohidratos. Es un punto de partida: después podés editar cada valor.</p>
@@ -191,14 +221,7 @@ export function NutritionView({ ownerId, onBack }: { ownerId: string | null; onB
           <label>Actividad semanal<select name="activity" defaultValue={profile?.activity ?? "moderate"}>{activityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
           <p className="nutrition-form-hint">Si tenés una condición médica, estás embarazada o sos menor de 18, consultá a un profesional antes de seguir estas metas.</p>
           <button className="primary-button full-button" type="submit">Calcular y guardar metas</button>
-        </form> : editor === "food" ? <form className="nutrition-form" onSubmit={saveFood}>
-          <label>Alimento o comida<input name="name" required maxLength={100} placeholder="Ej. Yogur con avena…" autoComplete="off" /></label>
-          <label>Momento del día<select name="meal" defaultValue={meals[0]}>{meals.map((meal) => <option key={meal}>{meal}</option>)}</select></label>
-          <p className="nutrition-form-label">Macronutrientes por porción</p>
-          <div className="nutrition-form-grid"><label>Proteína (g)<input name="protein" type="number" inputMode="decimal" min="0" step="0.1" defaultValue="0" /></label><label>Carbohidratos (g)<input name="carbs" type="number" inputMode="decimal" min="0" step="0.1" defaultValue="0" /></label><label>Grasas (g)<input name="fats" type="number" inputMode="decimal" min="0" step="0.1" defaultValue="0" /></label></div>
-          <p className="nutrition-form-hint">Ingresá los valores de la etiqueta o de tu fuente de información.</p>
-          <button className="primary-button full-button" type="submit">Guardar alimento</button>
-        </form> : <form className="nutrition-form" onSubmit={saveGoals}>
+        </form> : editor === "food" ? <FoodEntryEditor key={editingEntry?.id ?? "new"} meals={meals} initial={editingEntry} defaultMeal={newMeal} onSave={saveFood} onDelete={editingEntry ? deleteFood : null} /> : <form className="nutrition-form" onSubmit={saveGoals}>
           <p className="nutrition-form-hint">Cargá los objetivos que definiste para vos. No se calculan automáticamente.</p>
           <div className="nutrition-form-grid"><label>Calorías (kcal)<input name="calories" type="number" inputMode="numeric" min="0" step="1" defaultValue={data.goals.calories} /></label><label>Proteína (g)<input name="protein" type="number" inputMode="numeric" min="0" step="1" defaultValue={data.goals.protein} /></label><label>Carbohidratos (g)<input name="carbs" type="number" inputMode="numeric" min="0" step="1" defaultValue={data.goals.carbs} /></label><label>Grasas (g)<input name="fats" type="number" inputMode="numeric" min="0" step="1" defaultValue={data.goals.fats} /></label></div>
           <button className="primary-button full-button" type="submit">Guardar objetivos</button>
@@ -206,6 +229,14 @@ export function NutritionView({ ownerId, onBack }: { ownerId: string | null; onB
       </section>
     </div> : null}
   </div>;
+}
+
+function fmt(value: number): string {
+  return (Math.round(value * 10) / 10).toLocaleString("es-AR");
+}
+
+function sumEntries(entries: FoodEntry[]): { protein: number; carbs: number; fats: number } {
+  return entries.reduce((total, entry) => ({ protein: total.protein + entry.protein, carbs: total.carbs + entry.carbs, fats: total.fats + entry.fats }), { protein: 0, carbs: 0, fats: 0 });
 }
 
 function MacroCard({ label, short, value, target, tone }: { label: string; short: string; value: number; target: number; tone: "violet" | "blue" | "orange" }): ReactElement {

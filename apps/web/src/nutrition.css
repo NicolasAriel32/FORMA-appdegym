@@ -85,3 +85,59 @@
 .nutrition-choice input:focus-visible + span { outline:2px solid #9e8cff; outline-offset:2px; }
 .nutrition-hero strong, .macro-card strong, .nutrition-food-entry span { font-variant-numeric:tabular-nums; }
 .nutrition-modal-layer { overscroll-behavior:contain; }
+
+/* Comidas editables y carga por cantidad */
+.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.nutrition-meal-heading > span { margin-left:auto; }
+.nutrition-meal-add { display:grid; width:36px; height:36px; place-items:center; margin:-6px -6px -6px 0; border-radius:10px; color:#c2b6ff; background:rgba(194,182,255,.1); cursor:pointer; }
+button.nutrition-food-entry { width:100%; border-right:0; border-bottom:0; border-left:0; color:inherit; background:none; font:inherit; text-align:left; cursor:pointer; }
+button.nutrition-food-entry:hover strong { color:#fff; }
+.nutrition-food-entry .nutrition-entry-items { overflow:hidden; color:#a7abbd; text-overflow:ellipsis; white-space:nowrap; }
+
+.food-editor { display:grid; gap:14px; }
+.food-meals { display:flex; gap:6px; margin:0 -18px; padding:0 18px 2px; overflow-x:auto; scrollbar-width:none; }
+.food-meals button { flex:none; min-height:38px; padding:0 13px; border:1px solid rgba(255,255,255,.13); border-radius:99px; color:#c3c6d3; background:transparent; font-size:.74rem; font-weight:800; cursor:pointer; }
+.food-meals button.is-on { border-color:transparent; color:#17152e; background:#d7d0ff; }
+.food-mode button { min-height:40px; font-size:.78rem; }
+.food-items { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
+.food-items li { display:grid; gap:9px; padding:12px; border:1px solid rgba(194,182,255,.22); border-radius:16px; background:rgba(194,182,255,.06); }
+.food-item-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.food-item-head strong { color:#f0eff8; font-size:.84rem; }
+.food-icon-button { display:grid; flex:none; width:36px; height:36px; place-items:center; margin:-8px -6px -8px 0; border-radius:10px; color:#9a9fb2; background:transparent; cursor:pointer; }
+.food-item-amount { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.food-grams { display:flex; align-items:center; gap:4px; padding:0 10px; border:1px solid rgba(255,255,255,.16); border-radius:12px; background:rgba(9,10,18,.5); }
+.app-shell .food-grams input { width:58px; min-height:42px; padding:0; border:0; outline:0; color:#fff; background:transparent; font-size:1.15rem; font-weight:900; font-variant-numeric:tabular-nums; text-align:right; }
+.food-grams span { color:#a7abbd; font-size:.8rem; font-weight:800; }
+.food-grams:focus-within { border-color:#9785fd; }
+.food-portions { display:flex; flex-wrap:wrap; gap:6px; }
+.food-portions button { min-height:34px; padding:0 10px; border:1px solid rgba(255,255,255,.12); border-radius:99px; color:#c3c6d3; background:transparent; font-size:.68rem; font-weight:700; cursor:pointer; }
+.food-portions button.is-on { border-color:#c2b6ff; color:#fff; background:rgba(194,182,255,.16); }
+.food-item-macros { color:#b4b0d6; font-size:.7rem; font-variant-numeric:tabular-nums; }
+.food-search { display:flex; align-items:center; gap:9px; padding:0 13px; border:1px solid rgba(255,255,255,.14); border-radius:13px; color:#74798d; background:rgba(255,255,255,.05); }
+.app-shell .food-search input { flex:1; min-height:46px; padding:0; border:0; outline:0; color:#fff; background:transparent; }
+.food-search:focus-within { border-color:#9785fd; }
+.food-results { display:grid; gap:4px; margin:-6px 0 0; padding:6px; list-style:none; border:1px solid rgba(255,255,255,.08); border-radius:14px; background:#1b1d2b; }
+.food-results button { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-height:52px; padding:8px 10px; border:0; border-radius:10px; color:#c2b6ff; background:transparent; text-align:left; cursor:pointer; }
+.food-results button:hover, .food-results button:focus-visible { background:rgba(255,255,255,.06); }
+.food-results span { display:grid; gap:3px; min-width:0; }
+.food-results strong { color:#eeeef5; font-size:.8rem; }
+.food-results small { color:#8d92a5; font-size:.64rem; }
+.food-no-results { display:grid; gap:10px; padding:14px; border:1px dashed rgba(255,255,255,.16); border-radius:14px; text-align:center; }
+.food-no-results p { margin:0; color:#a7abbd; font-size:.78rem; }
+.food-name { display:grid; gap:6px; color:#a7abbd; font-size:.72rem; font-weight:700; }
+.food-total { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:14px 16px; border-radius:16px; background:linear-gradient(135deg, rgba(194,182,255,.2), rgba(194,182,255,.06)); }
+.food-total strong { color:#fff; font-size:1.35rem; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+.food-total span { color:#d4cff5; font-size:.72rem; font-variant-numeric:tabular-nums; text-align:right; }
+.food-delete { display:flex; align-items:center; justify-content:center; gap:7px; min-height:44px; border:0; border-radius:12px; color:#ffb4a6; background:transparent; font-size:.8rem; font-weight:800; cursor:pointer; }
+.food-confirm { display:grid; gap:8px; padding:12px; border:1px solid rgba(239,120,100,.3); border-radius:14px; background:rgba(239,120,100,.08); }
+.food-confirm p { margin:0; color:#f0d6d0; font-size:.8rem; }
+.food-confirm > div { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.food-confirm button { min-height:44px; border-radius:10px; color:#e2e3ec; background:rgba(255,255,255,.06); font-weight:800; cursor:pointer; }
+.food-confirm .is-danger { color:#ffb4a6; background:rgba(239,120,100,.16); }
+.food-mode button:not(.is-selected) { color:#aeb2c3; }
+.app-shell .food-editor .food-name input, .app-shell .food-editor .nutrition-form-grid input { width:100%; min-height:46px; padding:0 13px; border:1px solid rgba(255,255,255,.14); border-radius:12px; outline:0; color:#fff; background:rgba(255,255,255,.05); }
+.app-shell .food-editor .food-name input:focus, .app-shell .food-editor .nutrition-form-grid input:focus { border-color:#9785fd; box-shadow:0 0 0 3px rgba(151,133,253,.22); }
+.app-shell .food-search input:focus-visible, .app-shell .food-grams input:focus-visible { outline:none; box-shadow:none; }
+.food-search:focus-within, .food-grams:focus-within { box-shadow:0 0 0 3px rgba(151,133,253,.22); }
+.food-editor .nutrition-form-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px; }
+.food-editor .nutrition-form-grid label { display:grid; gap:6px; color:#a7abbd; font-size:.68rem; font-weight:700; }

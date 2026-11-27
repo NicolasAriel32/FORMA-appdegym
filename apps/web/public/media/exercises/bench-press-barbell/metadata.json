@@ -1,0 +1,24 @@
+{
+  "exerciseId": "bench-press-barbell",
+  "name": "Press banca plano",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [],
+  "targetMuscles": [
+    "Pectoral mayor"
+  ],
+  "secondaryMuscles": [
+    "Tríceps",
+    "Deltoides anterior"
+  ],
+  "equipment": [
+    "Banco, barra y discos"
+  ],
+  "camera": "three-quarter",
+  "resolution": "1008 × 568 MP4 y WebP",
+  "durationSeconds": 4.2,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Metadatos agregados después; el video original no documentaba su origen. Requiere revisión profesional."
+}

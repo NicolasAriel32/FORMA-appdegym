@@ -1,0 +1,32 @@
+{
+  "exerciseId": "lat-pulldown",
+  "name": "Jalón al pecho",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [
+    "top",
+    "mid",
+    "chest"
+  ],
+  "targetMuscles": [
+    "Dorsal ancho"
+  ],
+  "secondaryMuscles": [
+    "Bíceps",
+    "Redondo mayor",
+    "Romboides",
+    "Trapecio medio e inferior",
+    "Deltoides posterior"
+  ],
+  "equipment": [
+    "Polea alta",
+    "Barra ancha"
+  ],
+  "camera": "three-quarter back",
+  "resolution": "1008 × 672 MP4 y WebP",
+  "durationSeconds": 4.1,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Tres imágenes generadas con IA (arriba, mitad, barra al pecho). En la pose inicial la pila de pesas aparece levantada entera; reemplazar cuando haya una versión con la pila apoyada. Requiere revisión profesional."
+}

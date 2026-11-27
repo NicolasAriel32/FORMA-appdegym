@@ -1,0 +1,30 @@
+{
+  "exerciseId": "leg-press-45",
+  "name": "Prensa 45°",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [
+    "start",
+    "mid",
+    "bottom"
+  ],
+  "targetMuscles": [
+    "Cuádriceps",
+    "Glúteo mayor"
+  ],
+  "secondaryMuscles": [
+    "Aductores",
+    "Isquiosurales"
+  ],
+  "equipment": [
+    "Prensa inclinada 45°",
+    "Discos"
+  ],
+  "camera": "three-quarter side",
+  "resolution": "1008 × 672 MP4 y WebP",
+  "durationSeconds": 4.2,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Tres imágenes generadas con IA (inicio, mitad, fondo) alineadas y unidas con morph por flujo óptico. Requiere revisión profesional antes de aprobarse."
+}

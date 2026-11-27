@@ -1,0 +1,30 @@
+{
+  "exerciseId": "lateral-raise",
+  "name": "Elevaciones laterales con mancuernas",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [
+    "0",
+    "30",
+    "60",
+    "90"
+  ],
+  "targetMuscles": [
+    "Deltoides medio"
+  ],
+  "secondaryMuscles": [
+    "Deltoides anterior",
+    "Trapecio superior",
+    "Supraespinoso"
+  ],
+  "equipment": [
+    "Mancuernas"
+  ],
+  "camera": "three-quarter front",
+  "resolution": "1008 × 672 MP4 y WebP",
+  "durationSeconds": 3.8,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Cuatro imágenes generadas con IA (0°, 30°, 60°, 90°). Transiciones cortas con pausa en cada pose (--flow-scale 3 --transition 5 --hold-mid 5) porque el giro del brazo duplica con morph largo. Requiere revisión profesional."
+}

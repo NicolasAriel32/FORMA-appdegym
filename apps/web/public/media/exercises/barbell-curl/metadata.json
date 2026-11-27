@@ -1,0 +1,30 @@
+{
+  "exerciseId": "barbell-curl",
+  "name": "Curl con barra",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [
+    "down",
+    "mid",
+    "top"
+  ],
+  "targetMuscles": [
+    "Bíceps braquial"
+  ],
+  "secondaryMuscles": [
+    "Braquial",
+    "Braquiorradial",
+    "Antebrazos"
+  ],
+  "equipment": [
+    "Barra recta",
+    "Discos"
+  ],
+  "camera": "three-quarter front",
+  "resolution": "1008 × 672 MP4 y WebP",
+  "durationSeconds": 2.9,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Estilo por posiciones con transiciones cortas: en curls el brazo con peso se duplica con morph largo, y más poses no lo resuelven. Requiere revisión profesional."
+}

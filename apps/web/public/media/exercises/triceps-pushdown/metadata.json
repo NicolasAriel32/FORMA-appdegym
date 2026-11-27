@@ -1,0 +1,30 @@
+{
+  "exerciseId": "triceps-pushdown",
+  "name": "Extensión de tríceps en polea",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [
+    "top",
+    "mid",
+    "bottom"
+  ],
+  "targetMuscles": [
+    "Tríceps braquial"
+  ],
+  "secondaryMuscles": [
+    "Ancóneo",
+    "Antebrazos",
+    "Core (estabilización)"
+  ],
+  "equipment": [
+    "Polea alta",
+    "Cuerda"
+  ],
+  "camera": "three-quarter side",
+  "resolution": "1008 × 672 MP4 y WebP",
+  "durationSeconds": 4.1,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Provisorio: falta una pose con los antebrazos a 45 grados hacia abajo para que no se dupliquen en el último tramo. Generado con --flow-scale 3. Requiere revisión profesional."
+}

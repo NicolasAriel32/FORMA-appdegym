@@ -1,0 +1,31 @@
+{
+  "exerciseId": "face-pull",
+  "name": "Face pull en polea",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [
+    "reach",
+    "mid",
+    "pull"
+  ],
+  "targetMuscles": [
+    "Deltoides posterior",
+    "Trapecio medio"
+  ],
+  "secondaryMuscles": [
+    "Romboides",
+    "Manguito rotador",
+    "Bíceps"
+  ],
+  "equipment": [
+    "Polea",
+    "Cuerda"
+  ],
+  "camera": "three-quarter back",
+  "resolution": "1008 × 672 MP4 y WebP",
+  "durationSeconds": 3.1,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Tres imágenes generadas con IA. Transiciones cortas con pausa (--flow-scale 3 --transition 6 --hold-mid 6) porque la pila sube mucho entre la 2 y la 3. Mejoraría con una pose intermedia. Requiere revisión profesional."
+}

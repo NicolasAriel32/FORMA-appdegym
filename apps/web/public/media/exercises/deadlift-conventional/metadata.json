@@ -1,0 +1,34 @@
+{
+  "exerciseId": "deadlift-conventional",
+  "name": "Peso muerto convencional",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [
+    "floor",
+    "below-knee",
+    "above-knee",
+    "lockout"
+  ],
+  "targetMuscles": [
+    "Glúteo mayor",
+    "Isquiosurales",
+    "Erectores espinales"
+  ],
+  "secondaryMuscles": [
+    "Cuádriceps",
+    "Dorsal ancho",
+    "Trapecio",
+    "Antebrazos"
+  ],
+  "equipment": [
+    "Barra",
+    "Discos"
+  ],
+  "camera": "three-quarter side",
+  "resolution": "1008 × 672 MP4 y WebP",
+  "durationSeconds": 4.3,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Cuatro imágenes generadas con IA (piso, bajo rodilla, sobre rodilla, de pie) alineadas y unidas con morph por flujo óptico. Requiere revisión profesional."
+}

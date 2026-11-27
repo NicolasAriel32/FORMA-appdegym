@@ -1,0 +1,30 @@
+{
+  "exerciseId": "hammer-curl",
+  "name": "Curl martillo",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [
+    "down",
+    "45",
+    "horizontal",
+    "top"
+  ],
+  "targetMuscles": [
+    "Braquial",
+    "Braquiorradial"
+  ],
+  "secondaryMuscles": [
+    "Bíceps braquial",
+    "Antebrazos"
+  ],
+  "equipment": [
+    "Mancuernas"
+  ],
+  "camera": "three-quarter front",
+  "resolution": "1008 × 672 MP4 y WebP",
+  "durationSeconds": 3.6,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Cuatro imágenes generadas con IA. Estilo por posiciones con transiciones cortas (--flow-scale 3 --transition 5 --hold-mid 4): en curls el brazo con mancuerna se duplica con morph largo. Requiere revisión profesional."
+}

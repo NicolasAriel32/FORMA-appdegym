@@ -40,3 +40,27 @@ App de musculación mobile-first: ejercicios con técnica 3D, rutinas, entrenami
 - Calculadora en Nutrición y tarjeta de nivel en Progreso.
 - Ajustes móviles y de accesibilidad listados arriba.
 - 85/85 tests, build OK, verificado en navegador a 360 y 390 px.
+
+---
+
+# Segunda revisión (27/11, después de sumar 20 ejercicios)
+
+## Mediciones (vista de celular)
+- **Lighthouse (inicio):** rendimiento 100, accesibilidad 100, buenas prácticas 100. LCP 0,8 s, sin saltos de diseño.
+- **axe (7 pantallas: inicio, ejercicios, ficha, entrenar, progreso, nutrición, calculadora):** 2 problemas → corregidos, ahora 0.
+- **Bundle JS:** 571 KB (158 KB gzip). Lighthouse marca ~114 KB sin usar en la pantalla de inicio.
+
+## Corregido en esta revisión
+1. **Caché offline:** el service worker bajaba ~5 MB al instalar (23 videos, 23 portadas y 1,6 MB de imágenes de sentadilla que ya no se usan) y lo volvía a bajar con cada versión. Ahora instala solo la app (7 archivos); cada video y portada se guarda la primera vez que se abre esa ficha, en un caché propio (`forma-media-vN`) que sobrevive a las actualizaciones. Verificado: el video abierto se reproduce sin conexión.
+   - Si se reemplaza un video o una portada existente, subir `MEDIA_VERSION` en `sw.js`.
+2. **Contraste de la barra de navegación:** pestañas inactivas de 3,6:1 a 5,6:1 (AA).
+3. **Gráfico de Progreso:** `role="img"` para que el lector de pantalla lea su etiqueta.
+4. **Catálogo separado:** fichas y asociación ejercicio→animación pasaron de `App.tsx` (112 KB → 79 KB) a `src/exerciseCatalog.ts`; la cadena de 23 `if` es ahora una tabla.
+5. **Tests nuevos (91 en total):** cada ejercicio tiene animación, video, portada y metadatos; nombres del catálogo real se asocian bien. Detectaron que press banca, peso muerto rumano y remo con barra no tenían `metadata.json` → agregados.
+
+## Pendiente (requiere decisión o más trabajo)
+- **P0 sin cambios:** API sin desplegar, sin registro de cuenta, sesión que no persiste, proyecto Supabase pausado.
+- ~~**Botón "Descargar ejercicios para usar sin conexión"** en Perfil~~ → hecho: baja los 23 videos y portadas (3,4 MB) al caché de media, con progreso, aviso si hay datos móviles y reintento de lo que falte.
+- ~~**Dividir el bundle**~~ → hecho: Supabase (~215 KB) se carga recién al iniciar sesión (se precarga al abrir Perfil) y Nutrición se carga al entrar. JS al abrir: 558 KB → 352 KB; JS sin usar según Lighthouse: 114 KB → 58 KB. Lo que queda es el catálogo (textos de técnica, ~30 KB) y App.tsx.
+- **App.tsx** sigue con ~57 `useState` en un solo componente: separar por pantalla.
+- **Avisar en la ficha** cuando el video es provisorio (los 6 que esperan una imagen).

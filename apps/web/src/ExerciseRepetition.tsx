@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ReactElement, RefObject } from "react";
 
-export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp";
+export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline";
 export type ExerciseVisualMode = "movement" | "muscles";
 
 const media = {
@@ -25,6 +25,13 @@ const media = {
     duration: 4.2,
     equipment: "Carga de referencia · 2 discos de 20 kg por lado",
     focus: "Cadena posterior",
+  },
+  incline: {
+    folder: "/media/exercises/incline-dumbbell-press",
+    label: "Press inclinado con mancuernas en vista de tres cuartos",
+    duration: 4.3,
+    equipment: "Banco inclinado y un par de mancuernas",
+    focus: "Pecho alto y hombro anterior",
   },
   ohp: {
     folder: "/media/exercises/overhead-press",

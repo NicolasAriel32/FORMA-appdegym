@@ -1,0 +1,31 @@
+{
+  "exerciseId": "incline-dumbbell-press",
+  "name": "Press inclinado con mancuernas",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [
+    "bottom",
+    "low",
+    "near-top",
+    "top"
+  ],
+  "targetMuscles": [
+    "Pectoral mayor (porción clavicular)",
+    "Deltoides anterior"
+  ],
+  "secondaryMuscles": [
+    "Tríceps",
+    "Serrato anterior"
+  ],
+  "equipment": [
+    "Banco inclinable",
+    "Mancuernas"
+  ],
+  "camera": "three-quarter front",
+  "resolution": "1008 × 672 MP4 y WebP",
+  "durationSeconds": 4.3,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Provisorio: falta una pose entre la 2 y la 3 (mancuernas a mitad del empuje) para evitar el brazo duplicado. Generado con --flow-scale 3. Requiere revisión profesional."
+}

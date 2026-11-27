@@ -29,7 +29,7 @@ const media = {
   hammer: {
     folder: "/media/exercises/hammer-curl",
     label: "Curl martillo con mancuernas en vista frontal de tres cuartos",
-    duration: 3.4,
+    duration: 3.6,
     equipment: "Un par de mancuernas",
     focus: "Braquial y antebrazo",
   },

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ReactElement, RefObject } from "react";
 
-export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline";
+export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline" | "pushdown";
 export type ExerciseVisualMode = "movement" | "muscles";
 
 const media = {
@@ -25,6 +25,13 @@ const media = {
     duration: 4.2,
     equipment: "Carga de referencia · 2 discos de 20 kg por lado",
     focus: "Cadena posterior",
+  },
+  pushdown: {
+    folder: "/media/exercises/triceps-pushdown",
+    label: "Extensión de tríceps en polea alta con cuerda, vista lateral de tres cuartos",
+    duration: 4.1,
+    equipment: "Polea alta con cuerda",
+    focus: "Tríceps",
   },
   incline: {
     folder: "/media/exercises/incline-dumbbell-press",

@@ -39,6 +39,7 @@ const SHELL = [
 const MEDIA_VERSION = 1;
 const MEDIA_CACHE = `forma-media-v${MEDIA_VERSION}`;
 const EXERCISE_POSTER = /^\/media\/exercises\/[a-z0-9-]+\/poster\.webp$/;
+const ROUTINE_PHOTO = /^\/media\/routines\/[a-z0-9-]+\.webp$/;
 const EXERCISE_MEDIA = [...EXERCISE_VIDEOS].flatMap((video) => [video, video.replace(/repetition-pilot\.mp4$/, "poster.webp")]);
 // Tamaño total de EXERCISE_MEDIA en bytes; lo calcula el build (0 en desarrollo).
 const EXERCISE_MEDIA_BYTES = Number("/* media bytes */") || 0;
@@ -80,7 +81,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (EXERCISE_POSTER.test(url.pathname)) {
+  if (EXERCISE_POSTER.test(url.pathname) || ROUTINE_PHOTO.test(url.pathname)) {
     event.respondWith(cacheMediaOnFirstUse(event.request, url.pathname));
     return;
   }

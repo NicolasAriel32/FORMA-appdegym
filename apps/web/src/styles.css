@@ -521,3 +521,24 @@ h1, h2, h3 { text-wrap: balance; }
 .offline-media-progress span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8b7bff, #5fd0ff); transition: width .25s ease; }
 @media (prefers-reduced-motion: reduce) { .offline-media-progress span { transition: none; } }
 .lazy-loading { margin: 40px 0; color: #858b9e; font-size: .8rem; text-align: center; }
+
+/* Fotos representativas de rutinas */
+.muscle-orb.has-photo { width: 138px; height: 138px; background: none; box-shadow: 0 0 0 1px rgba(196, 188, 255, .35), 0 0 0 6px rgba(124, 106, 240, .12), 0 18px 40px rgba(64, 50, 160, .45); }
+.orb-photo { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; object-position: 50% 30%; }
+.muscle-orb.has-photo .orb-ring-one { inset: -9px; transform: rotate(29deg) scaleX(.9); border-color: rgba(196, 188, 255, .22); }
+.muscle-orb.has-photo .orb-caption { position: absolute; bottom: -9px; left: 50%; padding: 5px 9px; border: 1px solid rgba(196, 188, 255, .3); border-radius: 99px; color: #c9c2f5; background: rgba(23, 21, 46, .92); white-space: nowrap; transform: translateX(-50%); }
+.muscle-orb.has-photo .orb-caption b { margin-left: 3px; font-size: .62rem; }
+.routine-detail-hero.has-photo { display: flex; flex-direction: column; justify-content: flex-end; min-height: 300px; background: #0e0f17; }
+.routine-detail-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 85% 20%; }
+.routine-detail-hero.has-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(14,15,23,.92) 0%, rgba(14,15,23,.55) 45%, rgba(14,15,23,0) 75%), linear-gradient(0deg, rgba(16,18,28,1) 0%, rgba(16,18,28,0) 45%); }
+.routine-detail-hero.has-photo > :not(.routine-detail-photo) { position: relative; z-index: 1; }
+.routine-detail-hero.has-photo .routine-detail-close { position: absolute; z-index: 2; }
+.routine-detail-chip { align-self: flex-start; margin-bottom: 12px; padding: 5px 8px; border: 1px solid rgba(255,255,255,.18); border-radius: 7px; color: #ddd7ff; background: rgba(36, 32, 68, .85); font-size: .55rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+.routine-card-art.has-photo { overflow: hidden; align-items: flex-end; min-height: 112px; padding: 10px 12px; background: #0e0f17; }
+.routine-card-art.has-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 80% 22%; }
+.routine-card-art.has-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(14,15,23,.8), rgba(14,15,23,0) 60%); }
+.routine-card-art.has-photo span { position: relative; z-index: 1; color: rgba(255,255,255,.82); }
+.routine-preview-photo { flex: none; width: 42px; height: 42px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; object-fit: cover; object-position: 50% 25%; }
+.featured-copy { flex: 1; min-width: 0; }
+.muscle-orb.has-photo { flex: none; }
+@media (max-width: 400px) { .muscle-orb.has-photo { width: 112px; height: 112px; margin-right: -4px; } .featured-workout { padding-right: 14px; } }

@@ -168,6 +168,12 @@ const media = {
   },
 } as const;
 
+// Foto realista para las miniaturas de la lista (photo.webp en la carpeta de cada ejercicio).
+export function exercisePhotoFor(demonstration: Demonstration | undefined): string | undefined {
+  if (demonstration === undefined) return undefined;
+  return `${media[demonstration].folder}/photo.webp`;
+}
+
 const modes: Array<{ id: ExerciseVisualMode; label: string }> = [
   { id: "movement", label: "Movimiento" },
   { id: "muscles", label: "Músculos" },

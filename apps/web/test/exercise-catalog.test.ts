@@ -45,3 +45,18 @@ test("cada animación usada en la app tiene video, portada y metadatos", () => {
   }
   assert.ok(readdirSync(mediaRoot).length > 0);
 });
+
+test("every exercise photo exists and the service worker can save it offline", async () => {
+  const { readFileSync, existsSync } = await import("node:fs");
+  const { resolve: resolvePath } = await import("node:path");
+  const { exercisePhotoFor } = await import("../src/ExerciseRepetition.js");
+  const { demonstrationRules: rules } = await import("../src/exerciseCatalog.js");
+  const worker = readFileSync(resolvePath(process.cwd(), "apps/web/public/sw.js"), "utf8");
+  const photos = rules.map((rule) => exercisePhotoFor(rule.key)).filter((path): path is string => path !== undefined);
+  assert.ok(photos.length >= 22);
+  for (const path of photos) {
+    assert.ok(existsSync(resolvePath(process.cwd(), `apps/web/public${path}`)), path);
+    assert.ok(worker.includes(`"${path}"`), `sw.js no guarda ${path}`);
+  }
+  assert.equal((worker.match(/photo\.webp"/g) ?? []).length, photos.length);
+});

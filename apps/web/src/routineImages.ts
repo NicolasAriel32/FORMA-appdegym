@@ -16,6 +16,6 @@ export function routineImageFor(routine: { name: string; muscleGroup: string }):
   const text = `${routine.muscleGroup} ${routine.name}`.toLocaleLowerCase("es");
   if (/full ?body|cuerpo completo/.test(text)) return routineImages.fullBody;
   if (/pierna|legs?\b|cu[aá]driceps|gl[uú]teo|isquio/.test(text)) return routineImages.legs;
-  if (/torso|pecho|espalda|upper/.test(text)) return routineImages.torso;
+  if (/torso|pecho|espalda|hombro|brazo|upper/.test(text)) return routineImages.torso;
   return undefined;
 }

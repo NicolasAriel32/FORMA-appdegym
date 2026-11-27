@@ -574,3 +574,14 @@ h1, h2, h3 { text-wrap: balance; }
 .rk-sex-pick label.is-on { border-color: transparent; color: #17152e; background: #d7d0ff; }
 .rk-sex-pick input { position: absolute; opacity: 0; pointer-events: none; }
 .rk-sex-pick label:focus-within { outline: 2px solid #d7d0ff; outline-offset: 2px; }
+
+/* Opciones de cada rutina */
+.routine-card-wrap { position: relative; }
+.routine-card-menu { position: absolute; z-index: 2; top: 8px; right: 8px; display: grid; width: 44px; height: 44px; place-items: center; border-radius: 12px; color: #c9c4ea; background: transparent; cursor: pointer; }
+.routine-card-menu:hover, .routine-card-menu[aria-expanded="true"] { color: #fff; background: rgba(255,255,255,.08); }
+.routine-card-actions, .routine-card-confirm { display: grid; gap: 6px; margin-top: 6px; padding: 8px; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; background: #1b1e2c; }
+.routine-card-actions button, .routine-card-confirm button { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; border-radius: 10px; color: #e2e3ec; background: rgba(255,255,255,.05); font-size: .8rem; font-weight: 800; cursor: pointer; }
+.routine-card-actions .is-danger, .routine-card-confirm .is-danger { color: #ffb4a6; background: rgba(239, 120, 100, .14); }
+.routine-card-confirm p { margin: 4px 4px 2px; color: #d4d6e0; font-size: .8rem; line-height: 1.5; }
+.routine-card-confirm > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.restore-templates { justify-self: center; min-height: 44px; }

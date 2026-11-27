@@ -441,3 +441,34 @@ button:focus-visible, input:focus-visible { outline-color: var(--forma-accent); 
   .set-header { font-size: .68rem; }
   .set-row { min-height: 50px; }
 }
+
+/* Nivel y XP (Progreso) */
+.level-card { display: flex; align-items: center; gap: 16px; padding: 18px; border: 1px solid rgba(255,255,255,.08); border-radius: 22px; background: linear-gradient(145deg, rgba(255,255,255,.06), rgba(255,255,255,.02)); }
+.level-badge { display: grid; flex-shrink: 0; width: 64px; height: 64px; place-items: center; border-radius: 20px; color: #14131c; font-size: 1.6rem; font-weight: 900; background: linear-gradient(145deg, #e8b98b, #a8643a); box-shadow: 0 10px 26px rgba(0,0,0,.3); }
+.level-plata .level-badge { background: linear-gradient(145deg, #f1f3f8, #9ea4b4); }
+.level-oro .level-badge { background: linear-gradient(145deg, #ffe48a, #d29a1e); }
+.level-platino .level-badge { background: linear-gradient(145deg, #c9f3ee, #5fb5ad); }
+.level-diamante .level-badge { background: linear-gradient(145deg, #d8d1ff, #7d68f5); }
+.level-copy { display: grid; flex: 1; gap: 5px; min-width: 0; }
+.level-copy .card-kicker { margin-bottom: 0; }
+.level-copy strong { color: #f4f4fa; font-size: 1.4rem; letter-spacing: -.03em; }
+.level-copy small { color: #a3a8b8; font-size: .75rem; font-variant-numeric: tabular-nums; }
+.level-track { height: 8px; margin-top: 4px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.08); }
+.level-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #9e8cff, #d8d1ff); }
+
+/* Ajustes móviles (Web Interface Guidelines) */
+html { -webkit-text-size-adjust: 100%; }
+button, a, input, select, textarea, label { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+/* iOS hace zoom al enfocar campos con menos de 16px: todos los campos quedan en 16px. */
+.app-shell :is(input, select, textarea):not([type="radio"], [type="checkbox"]) { font-size: 16px; }
+/* Foco visible en todos los controles, aunque una regla anterior use outline: 0. */
+.app-shell :is(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid #9e8cff; outline-offset: 2px; }
+.drawer-layer, .profile-drawer, .routine-editor, .recovery-drawer { overscroll-behavior: contain; }
+.metric-card strong, .progress-hero-card strong, .set-entry input { font-variant-numeric: tabular-nums; }
+h1, h2, h3 { text-wrap: balance; }
+/* Textos mínimos legibles en celular */
+.nav-item { font-size: .66rem; }
+.exercise-rank, .library-exercise-copy small, .filter-chip { font-size: .7rem; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

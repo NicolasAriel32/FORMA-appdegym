@@ -1,0 +1,28 @@
+{
+  "exerciseId": "machine-chest-fly",
+  "name": "Apertura en máquina",
+  "assetVersion": "0.1.0-pilot",
+  "status": "pilot",
+  "phases": [
+    "open",
+    "mid",
+    "closed"
+  ],
+  "targetMuscles": [
+    "Pectoral mayor"
+  ],
+  "secondaryMuscles": [
+    "Deltoides anterior",
+    "Bíceps (estabilización)"
+  ],
+  "equipment": [
+    "Máquina de aperturas (pec deck)"
+  ],
+  "camera": "three-quarter front",
+  "resolution": "1008 × 672 MP4 y WebP",
+  "durationSeconds": 3.1,
+  "reviewedAt": null,
+  "reviewer": null,
+  "sourceBlend": null,
+  "notes": "Tres imágenes generadas con IA (brazos abiertos, a 45° y manijas juntas). Transiciones cortas con pausa (--flow-scale 3 --transition 6 --hold-mid 6) porque en la pose final la IA dibujó los brazos de la máquina rectos en lugar de curvos y el morph largo los duplica. Mejoraría rehaciendo la pose 3 con los mismos brazos curvos. Requiere revisión profesional."
+}

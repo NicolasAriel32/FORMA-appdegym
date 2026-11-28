@@ -30,6 +30,10 @@ test("los nombres que vienen del catálogo real se asocian a la animación corre
   assert.equal(byName("Jalón al pecho"), "pulldown");
   assert.equal(byName("Remo con barra"), "row");
   assert.equal(byName("Remo sentado en polea"), "cablerow");
+  assert.equal(byName("Apertura en máquina"), "pecdeck");
+  assert.equal(byName("Aperturas en pec deck"), "pecdeck");
+  assert.equal(byName("Contractora"), "pecdeck");
+  assert.equal(byName("Aperturas con mancuernas"), undefined);
   assert.equal(byName("Ejercicio inventado"), undefined);
 });
 

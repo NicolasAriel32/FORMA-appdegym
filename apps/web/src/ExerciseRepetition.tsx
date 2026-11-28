@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ReactElement, RefObject } from "react";
 
-export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline" | "pushdown" | "lunge" | "legext" | "legcurl" | "hipthrust" | "dbrow" | "cablerow" | "lateral" | "facepull" | "bbcurl" | "dbcurl" | "hammer" | "skull";
+export type Demonstration = "squat" | "bench" | "deadlift" | "row" | "legpress" | "conventional" | "pullup" | "pulldown" | "ohp" | "incline" | "pushdown" | "lunge" | "legext" | "legcurl" | "hipthrust" | "dbrow" | "cablerow" | "lateral" | "facepull" | "bbcurl" | "dbcurl" | "hammer" | "skull" | "pecdeck";
 export type ExerciseVisualMode = "movement" | "muscles";
 
 const media = {
@@ -116,6 +116,13 @@ const media = {
     duration: 4.1,
     equipment: "Polea alta con cuerda",
     focus: "Tríceps",
+  },
+  pecdeck: {
+    folder: "/media/exercises/machine-chest-fly",
+    label: "Apertura en máquina pec deck en vista frontal de tres cuartos",
+    duration: 3.1,
+    equipment: "Máquina de aperturas (pec deck)",
+    focus: "Pecho",
   },
   incline: {
     folder: "/media/exercises/incline-dumbbell-press",

@@ -1,4 +1,4 @@
-const CACHE_NAME = "forma-shell-v31";
+const CACHE_NAME = "forma-shell-v32";
 const EXERCISE_VIDEOS = new Set([
   "/media/exercises/squat-back-barbell/repetition-pilot.mp4",
   "/media/exercises/bench-press-barbell/repetition-pilot.mp4",
@@ -23,6 +23,7 @@ const EXERCISE_VIDEOS = new Set([
   "/media/exercises/dumbbell-curl/repetition-pilot.mp4",
   "/media/exercises/hammer-curl/repetition-pilot.mp4",
   "/media/exercises/skull-crusher/repetition-pilot.mp4",
+  "/media/exercises/machine-chest-fly/repetition-pilot.mp4",
 ]);
 // Solo la app en sí se descarga al instalar. Los videos y portadas de ejercicios
 // se guardan recién cuando el usuario abre ese ejercicio (ahorra ~5 MB de datos
@@ -56,6 +57,7 @@ const EXERCISE_PHOTOS = [
   "/media/exercises/lateral-raise/photo.webp",
   "/media/exercises/leg-extension/photo.webp",
   "/media/exercises/leg-press-45/photo.webp",
+  "/media/exercises/machine-chest-fly/photo.webp",
   "/media/exercises/lying-leg-curl/photo.webp",
   "/media/exercises/one-arm-dumbbell-row/photo.webp",
   "/media/exercises/overhead-press/photo.webp",

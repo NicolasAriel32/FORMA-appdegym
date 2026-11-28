@@ -4,6 +4,7 @@ import "./routine-editor.css";
 import { exercisePhotoFor } from "./ExerciseRepetition.js";
 import { demonstrationFor, muscleGroupFor, muscleGroups, type MuscleGroup } from "./exerciseCatalog.js";
 import { Icon } from "./Icon.js";
+import { defaultSetsPerExercise, estimateUniformMinutes, formatRestSeconds, formatRoutineMinutes, restOptions } from "./routineDuration.js";
 
 export type EditorExercise = { id: string; name: string; description: string };
 
@@ -12,15 +13,17 @@ type Props = {
   initialName: string;
   initialDescription: string;
   initialExerciseIds: string[];
+  /** Descanso entre series guardado en la rutina, en segundos. */
+  initialRestSeconds: number;
   message: string | null;
   exercises: EditorExercise[];
   saving: boolean;
   online: boolean;
   onClose: () => void;
-  onSave: (name: string, description: string, exerciseIds: string[]) => void;
+  onSave: (name: string, description: string, exerciseIds: string[], restSeconds: number) => void;
 };
 
-export function RoutineEditor({ mode, initialName, initialDescription, initialExerciseIds, message, exercises, saving, online, onClose, onSave }: Props): ReactElement {
+export function RoutineEditor({ mode, initialName, initialDescription, initialExerciseIds, initialRestSeconds, message, exercises, saving, online, onClose, onSave }: Props): ReactElement {
   const demo = mode === "demo";
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
@@ -28,6 +31,8 @@ export function RoutineEditor({ mode, initialName, initialDescription, initialEx
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState<MuscleGroup | "Todos">("Todos");
   const [lastAdded, setLastAdded] = useState<string | null>(null);
+  const [restSeconds, setRestSeconds] = useState(initialRestSeconds);
+  const minutes = estimateUniformMinutes(selected.length, restSeconds);
 
   const byId = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exercise])), [exercises]);
   const groupOf = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, muscleGroupFor({ ...exercise, muscle: exercise.description })])), [exercises]);
@@ -85,6 +90,17 @@ export function RoutineEditor({ mode, initialName, initialDescription, initialEx
             })}</ol>}
         </section>
 
+        <section className="rx-rest" aria-labelledby="rx-rest-title">
+          <div className="rx-heading"><h3 id="rx-rest-title">Descanso entre series</h3>
+            {selected.length > 0 && <span className="rx-duration" aria-live="polite">Duración estimada <strong>{formatRoutineMinutes(minutes)}</strong></span>}</div>
+          {demo
+            ? <div className="rx-chips" role="group" aria-label="Descanso entre series">
+              {restOptions.map((seconds) => <button key={seconds} type="button" aria-pressed={restSeconds === seconds} className={restSeconds === seconds ? "is-on" : undefined} onClick={() => setRestSeconds(seconds)}>{formatRestSeconds(seconds)}</button>)}
+            </div>
+            : <p className="muted">{formatRestSeconds(restSeconds)}, el que tiene guardado la rutina.</p>}
+          <p className="rx-hint">Calculado con {defaultSetsPerExercise} series por ejercicio, unos 45 segundos por serie y un minuto y medio para cambiar de ejercicio.</p>
+        </section>
+
         <section className="rx-library" aria-labelledby="rx-library-title">
           <div className="rx-heading"><h3 id="rx-library-title">Agregar ejercicios</h3><span className="muted">{visible.length} de {exercises.length}</span></div>
           {exercises.length === 0 ? <p className="muted">Necesitás conexión para cargar el catálogo de ejercicios.</p> : <>
@@ -113,7 +129,7 @@ export function RoutineEditor({ mode, initialName, initialDescription, initialEx
       </div>
       <div className="rx-footer">
         <p className="security-note">{demo ? "Se guarda en este teléfono." : "Se guarda en tu cuenta."}</p>
-        <button className="primary-button full-button" type="button" disabled={!canSave} onClick={() => onSave(name, description, selected)}>
+        <button className="primary-button full-button" type="button" disabled={!canSave} onClick={() => onSave(name, description, selected, restSeconds)}>
           {saveLabel}{selected.length > 0 && !saving ? ` (${selected.length})` : ""}
         </button>
       </div>

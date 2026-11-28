@@ -313,7 +313,8 @@ html:has(.exercise-details[open]) { overflow: hidden; }
 .rest-duration[aria-expanded="true"] .icon { transform: rotate(90deg); }
 .rest-card .rest-settings { display: grid; gap: 8px; padding: 0 0 10px; }
 .rest-card .rest-settings[hidden] { display: none; }
-.rest-card .rest-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rest-card .rest-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.rest-card .rest-presets .rest-toggle { padding: 0 4px; white-space: nowrap; }
 .rest-custom { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
 .rest-toggle { min-height: 44px; }
 .rest-play { display: grid; width: 44px; place-items: center; padding: 0; }
